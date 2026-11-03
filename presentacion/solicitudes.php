@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../negocio/Auth.php';
 require_once __DIR__ . '/../datos/SolicitudDAO.php';
 
-// Pueden entrar administrador, medico y enfermeria
+// Pueden entrar el administrador y los usuarios basicos
 Auth::exigirPersonal();
 $usuario = Auth::usuarioActual();
 $esAdmin = Auth::esAdministrador();
@@ -16,7 +16,7 @@ try {
         // el administrador ve todas las solicitudes
         $solicitudes = $dao->listar();
     } else {
-        // medico y enfermeria ven solo las que ellos hicieron
+        // el usuario basico ve solo las solicitudes que cargo el
         $solicitudes = $dao->listar((int) $usuario['identificador']);
     }
 } catch (PDOException $ex) {
@@ -130,6 +130,7 @@ require __DIR__ . '/layout_inicio.php';
                                 <td>
                                     <?php if ($s['estado'] === 'pendiente'): ?>
                                         <form method="post" action="solicitud_estado.php" class="d-inline">
+                                            <?= Csrf::campo() ?>
                                             <input type="hidden" name="id" value="<?= (int) $s['id_solicitud'] ?>">
                                             <button type="submit" name="estado" value="aprobada" class="btn btn-success btn-sm">Aprobar</button>
                                             <button type="submit" name="estado" value="rechazada" class="btn btn-danger btn-sm">Rechazar</button>

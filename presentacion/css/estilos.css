@@ -1,94 +1,222 @@
+/* =====================================================================
+   Estilos del sistema (panel interno y portal publico).
+   El login tiene su propio archivo (login_sistema.css) y no se toca.
+   ===================================================================== */
 
+:root{
+    --color-principal:#0f766e;
+    --color-oscuro:#115e59;
+    --color-claro:#ccfbf1;
+    --fondo:#f1f5f9;
+    --texto:#1e293b;
+    --borde:#e2e8f0;
+    --sombra:0 1px 3px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+    --ancho-menu:260px;
+}
+
+/* ---------- Base ---------- */
 
 body{
-    background-color:#eef2f6;
-    font-family:Arial, Helvetica, sans-serif;
+    background-color:var(--fondo);
+    color:var(--texto);
+    font-family:system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     overflow-x:hidden;
 }
 
-main{
-    background-color:#eef2f6;
+h2{ font-size:1.6rem; font-weight:700; color:#0f172a; }
+h5{ font-weight:700; }
+a{ color:var(--color-principal); }
+a:hover{ color:var(--color-oscuro); }
+.bi{ vertical-align:middle; }
+
+/* ---------- Contenido principal ---------- */
+
+.contenido{
     min-height:100vh;
+    padding:24px;
 }
 
+/* ---------- Barra superior en celular y tablet (boton hamburguesa) ---------- */
 
-
-
-aside{
-    background:#0f766e;
+.topbar{
+    position:sticky;
+    top:0;
+    z-index:1020;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 14px;
+    background:linear-gradient(135deg, var(--color-principal), var(--color-oscuro));
+    color:#fff;
+    box-shadow:0 2px 10px rgba(15,23,42,.2);
 }
 
-aside h3{
-    font-weight:bold;
-}
-
-aside hr{
-    border-color:rgba(255,255,255,.3);
-}
-
-aside .nav-link{
-    color:white;
-    padding:12px;
-    margin-bottom:8px;
-    border-radius:8px;
-    transition:.3s;
-}
-
-aside .nav-link:hover{
+.topbar .btn-menu{
     background:rgba(255,255,255,.15);
-}
-
-aside .nav-link.active{
-    background:white;
-    color:#0f766e !important;
-}
-
-
-
-.navbar{
-    border-radius:12px;
-}
-
-.form-control{
+    border:0;
     border-radius:10px;
+    color:#fff;
+    font-size:1.6rem;
+    line-height:1;
+    width:46px;
+    height:46px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 }
 
-.form-control:focus{
-    box-shadow:none;
-    border-color:#0f766e;
+.topbar .btn-menu:active{ background:rgba(255,255,255,.3); }
+
+.topbar-titulo{ font-weight:700; font-size:1rem; white-space:nowrap; }
+
+.topbar-seccion{
+    margin-left:auto;
+    font-size:.9rem;
+    opacity:.85;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    max-width:45%;
 }
 
+/* ---------- Menu lateral (fijo en computadora, deslizable en celular) ---------- */
 
-
-
-h2{
-    font-weight:bold;
+.offcanvas-lg.sidebar{
+    --bs-offcanvas-width:290px;
+    background:linear-gradient(180deg, var(--color-principal) 0%, #134e4a 100%) !important;
+    color:#fff;
+    border:0;
 }
 
-h5{
-    font-weight:bold;
+.sidebar .offcanvas-header{
+    border-bottom:1px solid rgba(255,255,255,.2);
+    padding:14px 18px;
 }
 
+.sidebar .offcanvas-title{ color:#fff; font-weight:700; }
 
+.sidebar .btn-close{ filter:invert(1) grayscale(100%) brightness(200%); }
 
-.alert{
-    border:none;
-    border-radius:12px;
+.sidebar-interno{ padding:16px; }
+
+.marca{
+    align-items:center;
+    gap:10px;
+    font-size:1.2rem;
+    line-height:1.15;
+    font-weight:700;
+    padding:6px 8px 16px;
+    margin-bottom:6px;
+    border-bottom:1px solid rgba(255,255,255,.2);
 }
 
+.marca i{ font-size:1.7rem; }
 
+.usuario-menu{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px 8px 14px;
+}
 
+.usuario-menu i{ font-size:2.2rem; }
+.usuario-menu .nombre{ font-weight:600; line-height:1.2; }
+.usuario-menu .rol{ font-size:.8rem; opacity:.8; }
+
+.sidebar .form-control{
+    background:rgba(255,255,255,.95);
+    border:0;
+}
+
+.menu-grupo{
+    list-style:none;
+    font-size:.7rem;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    opacity:.65;
+    margin:18px 12px 6px;
+}
+
+.sidebar .nav-link{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 14px;
+    margin-bottom:4px;
+    border-radius:10px;
+    color:rgba(255,255,255,.92);
+    font-weight:500;
+    transition:background .2s;
+}
+
+.sidebar .nav-link i{
+    font-size:1.2rem;
+    width:24px;
+    text-align:center;
+}
+
+.sidebar .nav-link:hover{
+    background:rgba(255,255,255,.14);
+    color:#fff;
+}
+
+.sidebar .nav-link.active{
+    background:#fff;
+    color:var(--color-principal);
+    font-weight:600;
+}
+
+.sidebar .nav-link.nav-salir{ color:#fecaca; }
+
+/* En computadora el menu queda fijo a la izquierda */
+@media (min-width:992px){
+    .offcanvas-lg.sidebar{
+        position:fixed !important;
+        top:0;
+        left:0;
+        bottom:0;
+        width:var(--ancho-menu) !important;
+        height:100vh !important;
+        overflow-y:auto;
+        z-index:1030;
+    }
+
+    .contenido{ margin-left:var(--ancho-menu); padding:28px 32px; }
+}
+
+/* ---------- Barra superior en computadora ---------- */
+
+.barra-escritorio{
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    padding:12px 20px;
+    margin-bottom:8px;
+    background:#fff;
+    border-radius:14px;
+    box-shadow:var(--sombra);
+}
+
+.barra-escritorio form{ flex:1; max-width:460px; }
+
+.usuario-chip{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.usuario-chip > i{ font-size:2rem; color:var(--color-principal); }
+
+/* ---------- Tarjetas ---------- */
 
 .card{
-    border:none;
-    border-radius:12px;
-    transition:.3s;
-    height:100%;
+    border:0;
+    border-radius:14px;
 }
 
-.card:hover{
-    transform:translateY(-3px);
-}
+.card.shadow-sm{ box-shadow:var(--sombra) !important; }
+
+.row > [class*="col"] > .card{ height:100%; }
 
 .card-body{
     display:flex;
@@ -96,227 +224,184 @@ h5{
     align-items:center;
 }
 
-.card h6{
-    color:#6c757d;
-    margin-bottom:8px;
-}
-
-.card h2{
-    font-size:40px;
-    margin:0;
-}
-
-.card i{
-    font-size:48px;
-}
-
-
-
-.table{
-    margin-bottom:0;
-}
-
-.table th{
-    background:#f8f9fa;
-    font-weight:bold;
-}
-
-.table td{
-    vertical-align:middle;
-}
-
-.table-responsive{
-    overflow-x:auto;
-}
-
-
-
-
-
-.badge{
-    padding:8px 12px;
-    border-radius:20px;
-    font-size:14px;
-}
-
-
-
-.btn{
-    border-radius:8px;
-    transition:.3s;
-}
-
-.btn:hover{
-    transform:scale(1.03);
-}
-
-
-
-
-.list-group-item{
-    border:none;
-    padding:15px;
-}
-
-.list-group-item i{
-    font-size:18px;
-}
-
-
-
-
-.bi{
-    vertical-align:middle;
-}
-
-
-
-
-.d-lg-none .btn{
-    margin-bottom:10px;
-    border-radius:8px;
-    font-weight:bold;
-}
-
-
-
-
-@media (max-width:992px){
-
-    main{
-        padding:20px !important;
-    }
-
-    h2{
-        text-align:center;
-    }
-
-    .alert{
-        text-align:center;
-    }
-
-    .card{
-        margin-bottom:15px;
-    }
-
-    .card h2{
-        font-size:34px;
-    }
-
-    .card i{
-        font-size:42px;
-    }
-
-    .navbar{
-        margin-bottom:20px;
-    }
-
-}
-
-
-
-
-@media (max-width:768px){
-
-    .navbar{
-        padding:15px;
-    }
-
-    .navbar .row{
-        text-align:center;
-    }
-
-    .form-control{
-        margin-bottom:15px;
-    }
-
-    .card{
-        margin-bottom:15px;
-    }
-
-}
-
-@media (max-width:576px){
-
-    body{
-        font-size:14px;
-    }
-
-    h2{
-        font-size:28px;
-    }
-
-    h5{
-        font-size:18px;
-    }
-
-    .card h2{
-        font-size:28px;
-    }
-
-    .card h6{
-        font-size:14px;
-    }
-
-    .card i{
-        font-size:34px;
-    }
-
-    .table{
-        font-size:13px;
-    }
-
-    .list-group-item{
-        font-size:14px;
-    }
-
-    .btn{
-        font-size:14px;
-    }
-
+.card-header.bg-white{
+    padding:16px 20px;
+    border-bottom:1px solid #eef2f6;
+    border-radius:14px 14px 0 0;
 }
 
 .card .btn i,
-.card-header i{
-    font-size:1rem;
+.card-header i,
+.btn-outline-secondary i{ font-size:1rem; }
+
+/* Tarjetas con numeros del dashboard */
+.tarjeta-dato{ transition:transform .2s, box-shadow .2s; }
+.tarjeta-dato:hover{ transform:translateY(-3px); }
+.tarjeta-dato .card-body > div{ width:100%; align-items:center; }
+.tarjeta-dato h6{ color:#64748b; margin-bottom:6px; font-weight:600; }
+.tarjeta-dato h2{ font-size:2.4rem; margin:0; }
+.tarjeta-dato i{ font-size:3rem; }
+
+/* ---------- Tablas ---------- */
+
+.table{ margin-bottom:0; }
+
+.table thead th{
+    background:#f8fafc;
+    color:#64748b;
+    font-size:.72rem;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    white-space:nowrap;
+    padding:12px 16px;
+    border-bottom:1px solid var(--borde);
 }
 
-.btn-outline-secondary i{
-    font-size:1rem;
+.table td{
+    padding:14px 16px;
+    vertical-align:middle;
+    border-color:#f1f5f9;
 }
 
+.table-hover > tbody > tr:hover > *{ --bs-table-bg-state:#f0fdfa; }
 
-.bg-primary{
-    background-color:#0f766e !important;
+.table-responsive{ overflow-x:auto; }
+
+/* ---------- Etiquetas, botones y formularios ---------- */
+
+.badge{
+    padding:.45em .8em;
+    border-radius:999px;
+    font-size:.75rem;
+    font-weight:600;
 }
+
+.btn{
+    border-radius:10px;
+    font-weight:500;
+    transition:background-color .2s, border-color .2s, box-shadow .2s;
+}
+
+.btn-sm{ border-radius:8px; }
 
 .btn-primary{
-    background-color:#0f766e;
-    border-color:#0f766e;
+    background-color:var(--color-principal);
+    border-color:var(--color-principal);
 }
 
 .btn-primary:hover,
 .btn-primary:focus{
-    background-color:#115e59;
-    border-color:#115e59;
+    background-color:var(--color-oscuro);
+    border-color:var(--color-oscuro);
+}
+
+.btn-outline-primary{
+    color:var(--color-principal);
+    border-color:var(--color-principal);
+}
+
+.btn-outline-primary:hover{
+    background-color:var(--color-principal);
+    border-color:var(--color-principal);
+}
+
+.form-label{ font-weight:600; font-size:.9rem; color:#334155; }
+
+.form-control,
+.form-select{
+    border-radius:10px;
+    border-color:#cbd5e1;
+    padding:.6rem .85rem;
 }
 
 .form-control:focus,
 .form-select:focus{
-    border-color:#0f766e;
-    box-shadow:0 0 0 3px rgba(15, 118, 110, 0.12);
+    border-color:var(--color-principal);
+    box-shadow:0 0 0 3px rgba(15,118,110,.15);
+}
+
+.form-check-input:checked{
+    background-color:var(--color-principal);
+    border-color:var(--color-principal);
+}
+
+.alert{
+    border:none;
+    border-radius:12px;
 }
 
 .alert-primary{
-    background-color:#ccfbf1;
+    background-color:var(--color-claro);
     color:#134e4a;
 }
+
+.list-group{
+    border-radius:14px;
+    box-shadow:var(--sombra);
+    overflow:hidden;
+}
+
+.list-group-item{
+    border-color:#eef2f6;
+    padding:16px 18px;
+}
+
+.list-group-item i{ font-size:18px; }
 
 .accordion-button:not(.collapsed){
-    background-color:#ccfbf1;
+    background-color:var(--color-claro);
     color:#134e4a;
 }
 
-.accordion-button:focus{
-    box-shadow:0 0 0 3px rgba(15, 118, 110, 0.12);
+.accordion-button:focus{ box-shadow:0 0 0 3px rgba(15,118,110,.15); }
+
+.bg-primary{
+    background:linear-gradient(135deg, var(--color-principal), var(--color-oscuro)) !important;
+}
+
+/* ---------- Paginas publicas (portal, documentos y encuestas) ---------- */
+
+.cabecera-publica{
+    border-radius:0 0 26px 26px;
+    box-shadow:0 4px 14px rgba(15,118,110,.25);
+    margin-bottom:8px;
+}
+
+.cabecera-publica h1{ font-weight:700; }
+
+/* ---------- Tablet y celular ---------- */
+
+@media (max-width:991.98px){
+
+    .contenido{ padding:16px; }
+
+    h2{ font-size:1.4rem; }
+
+    .table thead th,
+    .table td{ padding:10px 12px; }
+
+    .tarjeta-dato h2{ font-size:2rem; }
+    .tarjeta-dato i{ font-size:2.4rem; }
+
+    /* botones comodos para tocar con el dedo */
+    .btn{ min-height:40px; }
+    .btn-sm{ min-height:36px; }
+}
+
+@media (max-width:575.98px){
+
+    .topbar-seccion{ display:none; }
+
+    body{ font-size:15px; }
+
+    .contenido{ padding:12px; }
+
+    h2{ font-size:1.25rem; }
+
+    .table{ font-size:.85rem; }
+
+    .card-header.bg-white{ padding:12px 14px; }
+
+    .cabecera-publica{ border-radius:0 0 20px 20px; }
 }

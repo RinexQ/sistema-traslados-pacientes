@@ -1,11 +1,11 @@
-// Validaciones del lado del cliente (login, documentos, solicitudes, traslados y encuesta).
+// Validaciones del lado del cliente (login, documentos, usuarios, servicios, contrasena, solicitudes, traslados y encuesta).
 // El servidor en PHP vuelve a validar todo, esto es solo para avisar mas rapido.
 (function () {
     'use strict';
 
     var REGEX_CEDULA = /^\d{7,8}$/;
-    var REGEX_RUTA = /^(https?:\/\/|documentos\/)\S+$/i;
-    var REGEX_FORMATO = /\.(pdf|jpe?g)$/i;
+    var TAMANIO_MAXIMO_PDF = 5 * 1024 * 1024; // 5 MB
+    var REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     var REGEX_TELEFONO = /^[0-9+\s-]{7,20}$/;
 
     // Marca un campo con error (o bien si el mensaje viene vacio)
@@ -46,22 +46,41 @@
         return marcar(input, '');
     }
 
-    function validarCaptcha(input) {
-        var valor = input.value.trim();
-        if (valor === '') { return marcar(input, 'Respondé la pregunta de verificación.'); }
-        if (!/^\d+$/.test(valor)) { return marcar(input, 'La respuesta tiene que ser un número.'); }
+    // Archivo PDF: obligatorio al crear (campo required), opcional al reemplazar
+    function validarPdf(input) {
+        if (input.files.length === 0) {
+            return input.required ? marcar(input, 'Seleccioná un archivo PDF.') : marcar(input, '');
+        }
+        var archivo = input.files[0];
+        if (!/\.pdf$/i.test(archivo.name)) { return marcar(input, 'El archivo tiene que ser un PDF.'); }
+        if (archivo.size > TAMANIO_MAXIMO_PDF) { return marcar(input, 'El archivo supera el máximo de 5 MB.'); }
+        if (archivo.size === 0) { return marcar(input, 'El archivo está vacío.'); }
         return marcar(input, '');
     }
 
-    function validarRuta(input) {
+    function validarEmail(input) {
         var valor = input.value.trim();
-        if (valor === '') { return marcar(input, 'Indicá la URL o ruta del archivo.'); }
-        if (valor.length > 500) { return marcar(input, 'La ruta es demasiado larga (máximo 500 caracteres).'); }
-        if (!REGEX_RUTA.test(valor)) {
-            return marcar(input, 'Debe comenzar con http://, https:// o documentos/ y no tener espacios.');
-        }
-        if (valor.indexOf('..') !== -1) { return marcar(input, 'La ruta del archivo no es válida.'); }
-        if (!REGEX_FORMATO.test(valor)) { return marcar(input, 'El archivo tiene que ser un PDF o una imagen JPG.'); }
+        if (valor === '') { return marcar(input, 'El email es obligatorio.'); }
+        if (valor.length > 150 || !REGEX_EMAIL.test(valor)) { return marcar(input, 'Ingresá un email válido.'); }
+        return marcar(input, '');
+    }
+
+    // Contrasena nueva: de 8 a 72 caracteres, con una letra y un numero
+    function validarPasswordNueva(input) {
+        if (input.value === '') { return marcar(input, 'La contraseña es obligatoria.'); }
+        return controlarReglasPassword(input, input.value);
+    }
+
+    // Igual que la anterior pero se puede dejar vacia (edicion de usuario)
+    function validarPasswordOpcional(input) {
+        if (input.value === '') { return marcar(input, ''); }
+        return controlarReglasPassword(input, input.value);
+    }
+
+    function controlarReglasPassword(input, valor) {
+        if (valor.length < 8) { return marcar(input, 'Debe tener al menos 8 caracteres.'); }
+        if (valor.length > 72) { return marcar(input, 'No puede superar los 72 caracteres.'); }
+        if (!/[A-Za-z]/.test(valor) || !/\d/.test(valor)) { return marcar(input, 'Debe incluir al menos una letra y un número.'); }
         return marcar(input, '');
     }
 
@@ -147,14 +166,27 @@
 
     // ---------- Pantalla 1: login ----------
 
+    // Casilla "No soy un robot" de Google: tiene que estar marcada antes de enviar.
+    // Si la pagina no tiene casilla (claves sin cargar), no se exige nada.
+    function recaptchaMarcado(form) {
+        var casilla = form.querySelector('.g-recaptcha');
+        if (!casilla || typeof grecaptcha === 'undefined') { return true; }
+        var aviso = porId('error-recaptcha');
+        var marcado = grecaptcha.getResponse() !== '';
+        if (aviso) { aviso.textContent = marcado ? '' : 'Marcá la casilla "No soy un robot".'; }
+        return marcado;
+    }
+
     function iniciarLogin() {
         var form = porId('form-login');
         if (!form) { return; }
         conectar(form, [
             { input: porId('cedula'), validar: validarCedula },
-            { input: porId('password'), validar: validarPassword },
-            { input: porId('captcha'), validar: validarCaptcha }
+            { input: porId('password'), validar: validarPassword }
         ]);
+        form.addEventListener('submit', function (evento) {
+            if (!recaptchaMarcado(form)) { evento.preventDefault(); }
+        });
     }
 
     // ---------- Pantalla 2: documentos ----------
@@ -164,8 +196,48 @@
         if (!form) { return; }
         conectar(form, [
             { input: porId('titulo'), validar: textoObligatorio('El título', 200) },
+            { input: porId('descripcion'), validar: textoOpcional('La descripción', 500) },
             { input: porId('id_servicio'), validar: selectObligatorio('Elegí el servicio del documento.') },
-            { input: porId('archivo_url'), validar: validarRuta }
+            { input: porId('pdf'), validar: validarPdf }
+        ]);
+    }
+
+    // ---------- Usuarios, servicios y contrasena ----------
+
+    function iniciarUsuario() {
+        var form = porId('form-usuario');
+        if (!form) { return; }
+        var esEdicion = form.getAttribute('data-edicion') === '1';
+        conectar(form, [
+            { input: porId('nombre'), validar: textoObligatorio('El nombre', 100) },
+            { input: porId('ci'), validar: validarCedula },
+            { input: porId('email'), validar: validarEmail },
+            { input: porId('password'), validar: esEdicion ? validarPasswordOpcional : validarPasswordNueva }
+        ]);
+    }
+
+    function iniciarServicio() {
+        var form = porId('form-servicio');
+        if (!form) { return; }
+        conectar(form, [
+            { input: porId('nombre'), validar: textoObligatorio('El nombre del servicio', 100) }
+        ]);
+    }
+
+    function iniciarPassword() {
+        var form = porId('form-password');
+        if (!form) { return; }
+
+        function validarConfirmacion(input) {
+            if (input.value === '') { return marcar(input, 'Repetí la contraseña nueva.'); }
+            if (input.value !== porId('nueva').value) { return marcar(input, 'La confirmación no coincide.'); }
+            return marcar(input, '');
+        }
+
+        conectar(form, [
+            { input: porId('actual'), validar: validarPassword },
+            { input: porId('nueva'), validar: validarPasswordNueva },
+            { input: porId('confirmar'), validar: validarConfirmacion }
         ]);
     }
 
@@ -280,18 +352,19 @@
             if (!validarCalificacion()) {
                 evento.preventDefault();
             }
-        });
 
-        conectar(form, [
-            { input: porId('cedula'), validar: validarCedula },
-            { input: porId('comentario'), validar: textoOpcional('El comentario', 500) },
-            { input: porId('captcha'), validar: validarCaptcha }
-        ]);
+            if (!recaptchaMarcado(form)) {
+                evento.preventDefault();
+            }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         iniciarLogin();
         iniciarDocumento();
+        iniciarUsuario();
+        iniciarServicio();
+        iniciarPassword();
         iniciarSolicitud();
         iniciarTraslado();
         iniciarEncuesta();

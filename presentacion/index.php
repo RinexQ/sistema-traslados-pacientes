@@ -9,9 +9,6 @@ if (!Auth::esAdministrador()) {
 }
 
 $dao = new PanelDAO();
-$totalAmbulancias = $dao->contarVehiculos();
-$totalDocumentos  = $dao->contarDocumentos();
-$totalActivos     = $dao->contarTrasladosActivos();
 $traslados        = $dao->trasladosRecientes(5);
 $actividad        = $dao->actividadReciente(5);
 
@@ -35,52 +32,6 @@ require __DIR__ . '/layout_inicio.php';
             <div class="mt-4">
                 <h2>Dashboard</h2>
                 <p class="text-muted">Bienvenido al panel administrativo.</p>
-                <div class="alert alert-primary rounded-4">
-                    <i class="bi bi-info-circle-fill"></i>
-                    Desde este panel podrás gestionar ambulancias, documentación y usuarios.
-                </div>
-            </div>
-
-            <div class="row g-4">
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h6>Ambulancias</h6>
-                                    <h2><?= $totalAmbulancias ?></h2>
-                                </div>
-                                <i class="bi bi-truck text-success fs-1"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h6>Documentos</h6>
-                                    <h2><?= $totalDocumentos ?></h2>
-                                </div>
-                                <i class="bi bi-file-earmark-text text-warning fs-1"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h6>Traslados activos</h6>
-                                    <h2><?= $totalActivos ?></h2>
-                                </div>
-                                <i class="bi bi-calendar-check text-danger fs-1"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="row mt-4">
@@ -109,7 +60,7 @@ require __DIR__ . '/layout_inicio.php';
                                         <td><?= e($t['origen']) ?> → <?= e($t['destino']) ?></td>
                                         <td>
                                             <span class="badge <?= e($coloresEstado[$t['estado']] ?? 'bg-secondary') ?>">
-                                                <?= e(str_replace('_', ' ', $t['estado'])) ?>
+                                                <?= e(ucfirst(str_replace('_', ' ', $t['estado']))) ?>
                                             </span>
                                         </td>
                                         <td><?= e(date('d/m/Y H:i', strtotime($t['fecha_salida']))) ?></td>
@@ -125,7 +76,7 @@ require __DIR__ . '/layout_inicio.php';
                 </div>
 
                 <div class="col-12 col-xl-4">
-                    <div class="card shadow-sm mb-4">
+                    <div class="card shadow-sm">
                         <div class="card-header bg-white">
                             <h5 class="mb-0">Actividad reciente</h5>
                         </div>
@@ -136,19 +87,6 @@ require __DIR__ . '/layout_inicio.php';
                                     <?= e($a['texto']) ?>
                                 </div>
                             <?php endforeach; ?>
-                        </div>
-                    </div>
-
-                    <div class="card shadow-sm">
-                        <div class="card-header bg-white">
-                            <h5 class="mb-0">Accesos rápidos</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-grid gap-2 w-100">
-                                <a href="ambulancias.php" class="btn btn-primary">Ver ambulancias</a>
-                                <a href="documento_form.php" class="btn btn-success">Nuevo documento</a>
-                                <a href="usuarios.php" class="btn btn-warning text-dark">Ver usuarios</a>
-                            </div>
                         </div>
                     </div>
                 </div>

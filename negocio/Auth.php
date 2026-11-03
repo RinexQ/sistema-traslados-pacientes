@@ -1,12 +1,31 @@
 <?php
+// Capa de NEGOCIO
+// Sesiones y permisos. Hay dos roles:
+//   - administrador: gestiona documentos, servicios, usuarios y encuestas.
+//   - usuario (basico): consulta documentos y puede cargar solicitudes de traslado.
+// El material general y las encuestas son publicos y no pasan por aca.
+
+require_once __DIR__ . '/Csrf.php';
+require_once __DIR__ . '/../datos/UsuarioDAO.php';
+
 class Auth {
 
     public static function iniciar(): void {
         if (session_status() === PHP_SESSION_NONE) {
+            // La cookie de sesion no se puede leer desde JavaScript ni se envia desde otros sitios
+            $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path'     => '/',
+                'secure'   => $https,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
             session_start();
         }
     }
 
+    // Ruta de la carpeta del proyecto dentro del servidor web (vacia si esta en la raiz)
     public static function base(): string {
         $raiz = str_replace('\\', '/', (string) realpath(__DIR__ . '/..'));
         $doc  = str_replace('\\', '/', (string) realpath($_SERVER['DOCUMENT_ROOT'] ?? ''));
@@ -23,6 +42,7 @@ class Auth {
     public static function guardarUsuario(Usuario $usuario): void {
         self::iniciar();
         session_regenerate_id(true);
+        unset($_SESSION['csrf_token']); // token nuevo despues de iniciar sesion
         $_SESSION['usuario'] = [
             'identificador' => $usuario->identificador,
             'nombre'        => $usuario->nombre,
@@ -46,6 +66,13 @@ class Auth {
         return $u !== null && $u['rol'] === 'administrador';
     }
 
+    // Cualquier cuenta con sesion iniciada (administrador o usuario basico)
+    public static function esPersonal(): bool {
+        return self::usuarioActual() !== null;
+    }
+
+    // Pide sesion iniciada. Tambien comprueba en la base que la cuenta siga activa
+    // y actualiza el rol (si se dio de baja o se cambio el rol mientras estaba conectado).
     public static function exigirSesion(): void {
         self::iniciar();
 
@@ -60,22 +87,26 @@ class Auth {
             header('Location: ' . self::url('login.php'));
             exit;
         }
-    }
 
-    // Personal del hospital: administrador, medico o enfermeria (todos menos paciente)
-    public static function esPersonal(): bool {
-        $u = self::usuarioActual();
-        return $u !== null && $u['rol'] !== 'paciente';
+        try {
+            $estado = (new UsuarioDAO())->obtenerEstadoSesion((int) $_SESSION['usuario']['identificador']);
+        } catch (PDOException $ex) {
+            $estado = ['activo' => 1, 'rol' => $_SESSION['usuario']['rol']];
+        }
+
+        if ($estado === null || (int) $estado['activo'] !== 1) {
+            self::cerrarSesion();
+            header('Location: ' . self::url('login.php?aviso=baja'));
+            exit;
+        }
+        $_SESSION['usuario']['rol'] = $estado['rol'];
     }
 
     public static function exigirPersonal(): void {
         self::exigirSesion();
-        if (!self::esPersonal()) {
-            header('Location: ' . self::url('presentacion/documentos_listar.php'));
-            exit;
-        }
     }
 
+    // Los usuarios basicos que entran a una pagina de administrador vuelven al listado de documentos
     public static function exigirAdministrador(): void {
         self::exigirSesion();
         if (!self::esAdministrador()) {

@@ -12,7 +12,7 @@ class PanelDAO {
     }
 
     public function contarDocumentos(): int {
-        return $this->contar('SELECT COUNT(*) FROM documento');
+        return $this->contar('SELECT COUNT(*) FROM documento WHERE activo = 1');
     }
 
     public function contarTrasladosActivos(): int {
@@ -34,7 +34,7 @@ class PanelDAO {
         $sql = "(SELECT 'documento' AS tipo,
                         CONCAT('Documento cargado: ', titulo) AS texto,
                         CAST(fecha_carga AS DATETIME) AS fecha
-                 FROM documento)
+                 FROM documento WHERE activo = 1)
                 UNION ALL
                 (SELECT 'traslado',
                         CONCAT('Traslado ', t.estado, ': ', s.origen, ' a ', s.destino),

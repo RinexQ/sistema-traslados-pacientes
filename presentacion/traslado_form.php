@@ -20,6 +20,7 @@ $errores = [];
 $elegido = ['id_conductor' => 0, 'id_vehiculo' => 0, 'id_enfermero' => 0, 'fecha_salida' => date('Y-m-d\TH:i')];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    Csrf::exigir();
     $traslado = new Traslado($idSolicitud, $_POST);
     $vehiculo = $traslado->idVehiculo > 0 ? $dao->obtenerVehiculo($traslado->idVehiculo) : null;
     $errores = $traslado->validar($solicitud, $vehiculo);
@@ -73,6 +74,7 @@ require __DIR__ . '/layout_inicio.php';
             <div class="card shadow-sm" style="max-width: 600px;">
                 <div class="card-body d-block">
                     <form method="post" id="form-traslado" novalidate>
+                        <?= Csrf::campo() ?>
 
                         <div class="mb-3">
                             <label class="form-label" for="id_conductor">Conductor</label>

@@ -54,6 +54,7 @@ require __DIR__ . '/layout_inicio.php';
                                 </td>
                                 <td>
                                     <form method="post" action="vehiculo_estado.php" class="d-inline">
+                                        <?= Csrf::campo() ?>
                                         <input type="hidden" name="id" value="<?= (int) $v['id_vehiculo'] ?>">
                                         <?php if ($v['estado'] === 'roto'): ?>
                                             <button type="submit" name="estado" value="disponible" class="btn btn-success btn-sm">

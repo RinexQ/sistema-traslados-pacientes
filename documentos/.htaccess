@@ -1,0 +1,10 @@
+# Los PDF NO se abren directamente por la direccion del archivo.
+# Se entregan desde documento_abrir.php y descargar.php, que comprueban
+# que el documento este activo (un documento dado de baja no se puede abrir).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

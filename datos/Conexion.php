@@ -5,10 +5,10 @@
 
 class Conexion {
 
-    private static $host   = 'localhost';
-    private static $dbname = 'traslados_pacientes';
-    private static $user   = 'root';
-    private static $pass   = ''; // XAMPP por defecto no tiene clave en root
+    private static $host   = 'sql104.infinityfree.com'; // MySQL Hostname del panel
+    private static $dbname = 'if0_43235844_traslados_pacientes'; // MySQL DB Name del panel
+    private static $user   = 'if0_43235844'; // MySQL User Name del panel
+    private static $pass   = 'M9vrq0XTbZZ'; // la clave de tu cuenta (vPanel)
 
     private static $pdo = null;
 

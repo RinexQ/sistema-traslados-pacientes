@@ -1,20 +1,21 @@
 <?php
 require_once __DIR__ . '/../negocio/Auth.php';
 require_once __DIR__ . '/../datos/EncuestaDAO.php';
+require_once __DIR__ . '/../datos/ServicioDAO.php';
 
-// Reporte de satisfaccion para administrador, medico y enfermeria
-Auth::exigirPersonal();
+// Los resultados de las encuestas son solo para el administrador
+Auth::exigirAdministrador();
+
+$busqueda   = trim($_GET['q'] ?? '');
+$idServicio = (int) ($_GET['servicio'] ?? 0);
 
 $errorBD = '';
 $resumen = [];
-$comentarios = [];
+$servicios = [];
 
 try {
-    $dao = new EncuestaDAO();
-    $resumen = $dao->reporte();
-    foreach ($resumen as $fila) {
-        $comentarios[$fila['id_encuesta']] = $dao->comentariosRecientes((int) $fila['id_encuesta'], 5);
-    }
+    $servicios = (new ServicioDAO())->listarTodos();
+    $resumen = (new EncuestaDAO())->reporte($busqueda, $idServicio);
 } catch (PDOException $ex) {
     $errorBD = 'No se pudo cargar el reporte.';
 }
@@ -27,14 +28,38 @@ require __DIR__ . '/layout_inicio.php';
             <div class="mt-4 mb-3">
                 <h2>Encuestas de satisfacción</h2>
                 <p class="text-muted">
-                    Los pacientes responden desde el portal (<a href="../encuesta.php" target="_blank">ver encuestas</a>).
-                    El reporte no muestra quién respondió.
+                    Las personas responden desde el portal (<a href="../encuesta.php" target="_blank">ver encuestas</a>).
+                    Las respuestas son anónimas: no se guarda quién respondió.
                 </p>
             </div>
 
             <?php if ($errorBD !== ''): ?>
                 <div class="alert alert-danger"><?= e($errorBD) ?></div>
             <?php endif; ?>
+
+            <form method="get" class="card card-body d-block shadow-sm mb-3">
+                <div class="row g-2">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small mb-1" for="q">Buscar por título</label>
+                        <input class="form-control" type="search" id="q" name="q" maxlength="200" value="<?= e($busqueda) ?>">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-1" for="servicio">Servicio</label>
+                        <select class="form-select" id="servicio" name="servicio">
+                            <option value="0">Todos</option>
+                            <?php foreach ($servicios as $s): ?>
+                                <option value="<?= (int) $s['id_servicio'] ?>" <?= (int) $s['id_servicio'] === $idServicio ? 'selected' : '' ?>>
+                                    <?= e($s['nombre']) ?><?= (int) $s['activo'] === 0 ? ' (inactivo)' : '' ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3 d-flex align-items-end gap-2">
+                        <button type="submit" class="btn btn-primary flex-fill">Buscar</button>
+                        <a href="encuestas_reporte.php" class="btn btn-outline-secondary flex-fill">Limpiar</a>
+                    </div>
+                </div>
+            </form>
 
             <div class="card shadow-sm">
                 <div class="card-header bg-white"><h5 class="mb-0">Resultados por encuesta</h5></div>
@@ -43,38 +68,32 @@ require __DIR__ . '/layout_inicio.php';
                         <thead class="table-light">
                             <tr>
                                 <th>Encuesta</th>
-                                <th>Respuestas</th>
-                                <th>Promedio (1 a 5)</th>
-                                <th>Últimos comentarios</th>
+                                <th>Servicio</th>
+                                <th class="text-center">Respuestas</th>
+                                <th class="text-center">Promedio</th>
+                                <?php for ($n = 1; $n <= 5; $n++): ?>
+                                    <th class="text-center" title="Cantidad de respuestas con <?= $n ?>">Opción <?= $n ?></th>
+                                <?php endfor; ?>
                             </tr>
                         </thead>
                         <tbody>
                         <?php if (count($resumen) === 0): ?>
-                            <tr><td colspan="4" class="text-center text-muted py-4">No hay encuestas cargadas.</td></tr>
+                            <tr><td colspan="9" class="text-center text-muted py-4">No hay encuestas para mostrar.</td></tr>
                         <?php endif; ?>
                         <?php foreach ($resumen as $fila): ?>
                             <tr>
                                 <td><?= e($fila['titulo']) ?></td>
-                                <td><?= (int) $fila['total'] ?></td>
-                                <td><?= $fila['promedio'] === null ? '-' : e(number_format((float) $fila['promedio'], 1)) ?></td>
                                 <td>
-                                    <?php $lista = $comentarios[$fila['id_encuesta']] ?? []; ?>
-                                    <?php if (count($lista) === 0): ?>
-                                        <span class="text-muted">Sin comentarios</span>
-                                    <?php else: ?>
-                                        <details>
-                                            <summary>Ver (<?= count($lista) ?>)</summary>
-                                            <ul class="small mt-2 mb-0">
-                                                <?php foreach ($lista as $c): ?>
-                                                    <li>
-                                                        <?= e($c['respuesta_texto']) ?>
-                                                        <span class="text-muted">(<?= e($c['calificacion'] ?? '-') ?>/5)</span>
-                                                    </li>
-                                                <?php endforeach; ?>
-                                            </ul>
-                                        </details>
+                                    <?= $fila['servicio'] === null ? '<span class="text-muted">General</span>' : e($fila['servicio']) ?>
+                                    <?php if ($fila['servicio'] !== null && (int) $fila['servicio_activo'] === 0): ?>
+                                        <span class="badge bg-warning text-dark">Servicio inactivo</span>
                                     <?php endif; ?>
                                 </td>
+                                <td class="text-center"><?= (int) $fila['total'] ?></td>
+                                <td class="text-center"><?= $fila['promedio'] === null ? '-' : e(number_format((float) $fila['promedio'], 2)) ?></td>
+                                <?php for ($n = 1; $n <= 5; $n++): ?>
+                                    <td class="text-center"><?= (int) $fila['c' . $n] ?></td>
+                                <?php endfor; ?>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

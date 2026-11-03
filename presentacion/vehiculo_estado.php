@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ambulancias.php');
     exit;
 }
+Csrf::exigir();
 
 $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 $estado = $_POST['estado'] ?? '';

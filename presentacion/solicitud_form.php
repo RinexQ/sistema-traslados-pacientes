@@ -4,7 +4,7 @@ require_once __DIR__ . '/../negocio/Solicitud.php';
 require_once __DIR__ . '/../datos/SolicitudDAO.php';
 require_once __DIR__ . '/../datos/UsuarioDAO.php';
 
-// Pueden entrar administrador, medico y enfermeria
+// Pueden entrar el administrador y los usuarios basicos
 Auth::exigirPersonal();
 $usuario = Auth::usuarioActual();
 
@@ -17,6 +17,7 @@ $datos = [
 $marcados = ['aislamiento' => false, 'oxigeno' => false, 'verificado' => false];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    Csrf::exigir();
     $solicitud = new Solicitud($_POST);
     $errores = $solicitud->validar();
 
@@ -65,6 +66,7 @@ require __DIR__ . '/layout_inicio.php';
             <div class="card shadow-sm" style="max-width: 800px;">
                 <div class="card-body d-block">
                     <form method="post" id="form-solicitud" novalidate>
+                        <?= Csrf::campo() ?>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">

@@ -1,23 +1,22 @@
 <?php
 // Capa de NEGOCIO
 // Representa un documento y valida sus datos antes de guardarlos.
+// El archivo PDF se valida aparte (ver ArchivoPdf).
 
 class Documento {
 
     public ?int $id;
     public string $titulo;
-    public string $archivoUrl;
-    public ?string $fechaCarga;
-    public ?int $idAdminCarga;
-    public ?int $idServicio;
+    public string $descripcion;
+    public int $idServicio;
+    public bool $publicado; // true = se muestra en el portal; false = oculto (solo lo ve el administrador)
 
-    public function __construct(?int $id, string $titulo, string $archivoUrl, ?string $fechaCarga = null, ?int $idAdminCarga = null, ?int $idServicio = null) {
-        $this->id           = $id;
-        $this->titulo       = trim($titulo);
-        $this->archivoUrl   = trim($archivoUrl);
-        $this->fechaCarga   = $fechaCarga;
-        $this->idAdminCarga = $idAdminCarga;
-        $this->idServicio   = $idServicio;
+    public function __construct(?int $id, string $titulo, string $descripcion, int $idServicio, bool $publicado) {
+        $this->id          = $id;
+        $this->titulo      = trim($titulo);
+        $this->descripcion = trim($descripcion);
+        $this->idServicio  = $idServicio;
+        $this->publicado   = $publicado;
     }
 
     // Devuelve una lista de errores (vacia si esta todo bien)
@@ -25,31 +24,19 @@ class Documento {
         $errores = [];
 
         if ($this->titulo === '') {
-            $errores[] = 'El titulo es obligatorio.';
+            $errores[] = 'El título es obligatorio.';
         } elseif (mb_strlen($this->titulo) > 200) {
-            $errores[] = 'El titulo no puede superar los 200 caracteres.';
+            $errores[] = 'El título no puede superar los 200 caracteres.';
         }
 
-        if ($this->archivoUrl === '') {
-            $errores[] = 'Debes indicar la URL o ruta del archivo.';
-        } elseif (mb_strlen($this->archivoUrl) > 500) {
-            $errores[] = 'La URL del archivo es demasiado larga.';
-        } elseif (!preg_match('#^(https?://|documentos/)\S+$#i', $this->archivoUrl)) {
-            $errores[] = 'La ruta debe comenzar con http://, https:// o documentos/ y no tener espacios.';
-        } elseif (strpos($this->archivoUrl, '..') !== false) {
-            $errores[] = 'La ruta del archivo no es valida.';
-        } elseif (!preg_match('#\.(pdf|jpe?g)$#i', $this->archivoUrl)) {
-            $errores[] = 'El archivo tiene que ser un PDF o una imagen JPG.';
+        if (mb_strlen($this->descripcion) > 500) {
+            $errores[] = 'La descripción no puede superar los 500 caracteres.';
         }
 
-        if ($this->idServicio === null || $this->idServicio <= 0) {
-            $errores[] = 'Elegi el servicio al que pertenece el documento.';
+        if ($this->idServicio <= 0) {
+            $errores[] = 'Elegí el servicio al que pertenece el documento.';
         }
 
         return $errores;
-    }
-
-    public function esValido(): bool {
-        return count($this->validar()) === 0;
     }
 }

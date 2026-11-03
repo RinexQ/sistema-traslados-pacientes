@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/negocio/Auth.php';
 require_once __DIR__ . '/negocio/Usuario.php';
-require_once __DIR__ . '/negocio/Captcha.php';
+require_once __DIR__ . '/negocio/Recaptcha.php';
 
 Auth::iniciar();
 
@@ -13,8 +13,13 @@ if (Auth::haySesion()) {
 }
 
 $error = '';
+$usaRecaptcha = Recaptcha::activo();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && ($_GET['aviso'] ?? '') === 'baja') {
+    $error = 'Tu cuenta fue dada de baja o ya no está disponible.';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    Csrf::exigir();
     $cedula   = trim($_POST['cedula'] ?? '');
     $password = $_POST['password'] ?? '';
 
@@ -22,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Completá cédula y contraseña.';
     } elseif (!preg_match('/^\d{7,8}$/', $cedula)) {
         $error = 'La cédula debe tener 7 u 8 dígitos, sin puntos ni guión.';
-    } elseif (!Captcha::verificar($_POST['captcha'] ?? '')) {
-        $error = 'La respuesta de verificación es incorrecta.';
+    } elseif ($usaRecaptcha && !Recaptcha::verificar($_POST['g-recaptcha-response'] ?? '')) {
+        $error = 'Marcá la casilla "No soy un robot" para poder ingresar.';
     } else {
         try {
             $usuario = Usuario::autenticar($cedula, $password);
@@ -41,9 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-
-// Pregunta nueva cada vez que se muestra el formulario
-$pregunta = Captcha::nueva();
 
 function esc($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
 ?>
@@ -63,7 +65,7 @@ function esc($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
             <div class="login-overlay">
                 <div class="login-brand">
                     <h1><?= esc(SIGLAS_SISTEMA) ?></h1>
-                    <h3><?= esc(SUBTITULO_SISTEMA) ?> - Grupo <?= esc(NOMBRE_SISTEMA) ?></h3>
+                    <h3><?= esc(SUBTITULO_SISTEMA) ?></h3>
                     <p>
                         Solicitud de traslados, material de consulta para pacientes,
                         encuestas de satisfacción y reporte de eventos adversos.
@@ -82,6 +84,7 @@ function esc($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
                 <?php endif; ?>
 
                 <form method="post" id="form-login" novalidate>
+                    <?= Csrf::campo() ?>
                     <div class="campo">
                         <label for="cedula">Cédula</label>
                         <input type="text" id="cedula" name="cedula" maxlength="8" inputmode="numeric" required
@@ -94,21 +97,25 @@ function esc($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
                         <input type="password" id="password" name="password" required>
                         <div class="invalid-feedback"></div>
                     </div>
-                    <div class="campo">
-                        <label for="captcha"><?= esc($pregunta) ?></label>
-                        <input type="text" id="captcha" name="captcha" maxlength="3" inputmode="numeric" required autocomplete="off">
-                        <div class="invalid-feedback"></div>
-                    </div>
+                    <?php if ($usaRecaptcha): ?>
+                        <div class="campo" style="overflow-x:auto;">
+                            <?= Recaptcha::casilla() ?>
+                            <div id="error-recaptcha" style="color:#dc2626;font-size:.8rem;margin-top:4px;"></div>
+                        </div>
+                    <?php endif; ?>
                     <button type="submit">Ingresar</button>
                 </form>
 
                 <div class="login-link">
-                    <a href="portal.php">Ver material de consulta para pacientes</a>
+                    <a href="portal.php">Ir al portal para pacientes</a>
                 </div>
             </div>
         </div>
 
     </div>
+    <?php if ($usaRecaptcha): ?>
+        <?= Recaptcha::script() ?>
+    <?php endif; ?>
     <script src="presentacion/js/validaciones.js"></script>
 </body>
 </html>
