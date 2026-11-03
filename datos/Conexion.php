@@ -23,7 +23,7 @@ class Conexion {
                 ]);
             } catch (PDOException $e) {
                 // No mostramos el error real de MySQL al usuario final
-                die('No se pudo conectar a la base de datos.');
+                die('Error :' . $e->getMessage());
             }
         }
         return self::$pdo;
