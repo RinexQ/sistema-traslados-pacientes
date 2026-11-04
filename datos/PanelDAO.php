@@ -19,6 +19,29 @@ class PanelDAO {
         return $this->contar("SELECT COUNT(*) FROM traslado WHERE estado IN ('programado','en_curso')");
     }
 
+    // Indicadores generales del sistema para el panel del administrador
+    public function indicadores(): array {
+        return [
+            'documentos_activos' => $this->contar('SELECT COUNT(*) FROM documento WHERE activo = 1'),
+            'documentos_ocultos' => $this->contar('SELECT COUNT(*) FROM documento WHERE activo = 1 AND visible = 0'),
+            'documentos_baja'    => $this->contar('SELECT COUNT(*) FROM documento WHERE activo = 0'),
+            'servicios_activos'  => $this->contar('SELECT COUNT(*) FROM servicio WHERE activo = 1'),
+            'usuarios_activos'   => $this->contar('SELECT COUNT(*) FROM administrativo WHERE activo = 1'),
+            'encuestas_publicadas' => $this->contar("SELECT COUNT(*) FROM encuesta WHERE estado = 'publicada'"),
+            'encuestas_borrador'   => $this->contar("SELECT COUNT(*) FROM encuesta WHERE estado = 'borrador'"),
+            'encuestas_cerradas'   => $this->contar("SELECT COUNT(*) FROM encuesta WHERE estado = 'cerrada'"),
+            'respuestas_total'   => $this->contar('SELECT COUNT(*) FROM envio'),
+            'respuestas_semana'  => $this->contar('SELECT COUNT(*) FROM envio WHERE fecha >= DATE_SUB(NOW(), INTERVAL 7 DAY)'),
+            'satisfaccion'       => Conexion::obtener()->query(
+                "SELECT AVG(er.valor) FROM envio_respuesta er
+                 JOIN encuesta_pregunta p ON p.id_pregunta = er.id_pregunta
+                 WHERE p.tipo = 'valoracion' AND er.valor IS NOT NULL"
+            )->fetchColumn(),
+            'ambulancias'        => $this->contarVehiculos(),
+            'traslados_activos'  => $this->contarTrasladosActivos(),
+        ];
+    }
+
     public function trasladosRecientes(int $limite = 5): array {
         $limite = (int) $limite;
         $sql = "SELECT t.id_traslado, s.origen, s.destino, t.estado, t.fecha_salida
@@ -44,9 +67,9 @@ class PanelDAO {
                 UNION ALL
                 (SELECT 'respuesta',
                         CONCAT('Nueva respuesta en: ', e.titulo),
-                        r.fecha
-                 FROM respuesta r
-                 JOIN encuesta e ON e.id_encuesta = r.id_encuesta)
+                        ev.fecha
+                 FROM envio ev
+                 JOIN encuesta e ON e.id_encuesta = ev.id_encuesta)
                 ORDER BY fecha DESC
                 LIMIT $limite";
         return Conexion::obtener()->query($sql)->fetchAll();

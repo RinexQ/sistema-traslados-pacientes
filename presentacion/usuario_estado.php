@@ -1,6 +1,7 @@
 <?php
 // Baja logica y reactivacion de usuarios (solo administrador, solo por POST con token CSRF).
 require_once __DIR__ . '/../negocio/Auth.php';
+require_once __DIR__ . '/../negocio/Auditoria.php';
 require_once __DIR__ . '/../datos/UsuarioDAO.php';
 
 Auth::exigirAdministrador();
@@ -30,6 +31,8 @@ if ($id > 0 && in_array($accion, ['baja', 'reactivar'], true)) {
             $resultado = 'ultimo'; // siempre tiene que quedar un administrador activo
         } else {
             $dao->cambiarEstado($id, $accion === 'reactivar');
+            Auditoria::registrar($accion === 'reactivar' ? 'usuario_reactivacion' : 'usuario_baja', 'usuario', $id,
+                ($accion === 'reactivar' ? 'Usuario reactivado: ' : 'Usuario dado de baja: ') . $usuario['nombre']);
             $resultado = $accion === 'reactivar' ? 'reactivado' : 'baja';
         }
     } catch (PDOException $ex) {

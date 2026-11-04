@@ -325,38 +325,106 @@
         ]);
     }
 
-    // ---------- Pantalla 5: encuesta de satisfaccion ----------
+    // ---------- Encuesta publica: varias preguntas de distintos tipos ----------
+
+    // Revisa una pregunta obligatoria segun su tipo. Devuelve true si esta respondida.
+    function preguntaRespondida(bloque) {
+        var tipo = bloque.getAttribute('data-tipo');
+        if (tipo === 'texto') {
+            return bloque.querySelector('textarea').value.trim() !== '';
+        }
+        // opcion unica, multiple y valoracion: tiene que haber algo marcado
+        return bloque.querySelector('input:checked') !== null;
+    }
 
     function iniciarEncuesta() {
         var form = porId('form-encuesta');
         if (!form) { return; }
 
-        var radios = form.querySelectorAll('input[name="calificacion"]');
-        var errorCalificacion = porId('error-calificacion');
+        var bloques = form.querySelectorAll('.pregunta');
 
-        // Hay que elegir una de las 5 opciones
-        function validarCalificacion() {
-            var elegido = false;
-            for (var i = 0; i < radios.length; i++) {
-                if (radios[i].checked) { elegido = true; }
-            }
-            errorCalificacion.textContent = elegido ? '' : 'Elegí una calificación del 1 al 5.';
-            return elegido;
+        // Muestra o borra el aviso de una pregunta. Solo las obligatorias se exigen.
+        function controlar(bloque) {
+            var aviso = bloque.querySelector('.error-pregunta');
+            var obligatoria = bloque.getAttribute('data-obligatoria') === '1';
+            var ok = !obligatoria || preguntaRespondida(bloque);
+            if (aviso) { aviso.textContent = ok ? '' : 'Esta pregunta es obligatoria.'; }
+            return ok;
         }
 
-        for (var i = 0; i < radios.length; i++) {
-            radios[i].addEventListener('change', validarCalificacion);
+        for (var i = 0; i < bloques.length; i++) {
+            (function (bloque) {
+                bloque.addEventListener('change', function () { controlar(bloque); });
+                bloque.addEventListener('input', function () { controlar(bloque); });
+            })(bloques[i]);
         }
 
         form.addEventListener('submit', function (evento) {
-            if (!validarCalificacion()) {
-                evento.preventDefault();
+            var primeraConError = null;
+            for (var j = 0; j < bloques.length; j++) {
+                if (!controlar(bloques[j]) && primeraConError === null) {
+                    primeraConError = bloques[j];
+                }
             }
-
+            if (primeraConError !== null) {
+                evento.preventDefault();
+                primeraConError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
             if (!recaptchaMarcado(form)) {
                 evento.preventDefault();
             }
         });
+    }
+
+    // ---------- Constructor de encuestas ----------
+
+    function iniciarEncuestaDatos() {
+        var form = porId('form-encuesta-datos');
+        if (!form) { return; }
+        conectar(form, [
+            { input: porId('titulo'), validar: textoObligatorio('El título', 200) },
+            { input: porId('descripcion'), validar: textoOpcional('La descripción', 500) }
+        ]);
+    }
+
+    function iniciarPregunta() {
+        var form = porId('form-pregunta');
+        if (!form) { return; }
+
+        var tipo = porId('tipo');
+        var bloqueOpciones = porId('bloque-opciones');
+        var opciones = porId('opciones');
+
+        // Las opciones solo se piden en las preguntas de opcion unica y multiple
+        function mostrarOpciones() {
+            bloqueOpciones.style.display = (tipo.value === 'unica' || tipo.value === 'multiple') ? '' : 'none';
+        }
+        tipo.addEventListener('change', mostrarOpciones);
+        mostrarOpciones();
+
+        function validarOpciones(input) {
+            if (tipo.value !== 'unica' && tipo.value !== 'multiple') { return marcar(input, ''); }
+            var lineas = input.value.split(/\r\n|\r|\n/);
+            var cantidad = 0;
+            var vistas = {};
+            for (var i = 0; i < lineas.length; i++) {
+                var linea = lineas[i].trim();
+                if (linea === '') { continue; }
+                if (linea.length > 150) { return marcar(input, 'Cada opción puede tener hasta 150 caracteres.'); }
+                if (vistas[linea.toLowerCase()]) { return marcar(input, 'Hay opciones repetidas.'); }
+                vistas[linea.toLowerCase()] = true;
+                cantidad++;
+            }
+            if (cantidad < 2) { return marcar(input, 'Escribí al menos 2 opciones (una por línea).'); }
+            if (cantidad > 10) { return marcar(input, 'No puede haber más de 10 opciones.'); }
+            return marcar(input, '');
+        }
+
+        conectar(form, [
+            { input: porId('texto'), validar: textoObligatorio('La pregunta', 255) },
+            { input: opciones, validar: validarOpciones }
+        ]);
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -368,5 +436,7 @@
         iniciarSolicitud();
         iniciarTraslado();
         iniciarEncuesta();
+        iniciarEncuestaDatos();
+        iniciarPregunta();
     });
 })();

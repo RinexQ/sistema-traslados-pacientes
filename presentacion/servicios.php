@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../negocio/Auth.php';
+require_once __DIR__ . '/../negocio/Paginacion.php';
 require_once __DIR__ . '/../datos/ServicioDAO.php';
 
 Auth::exigirAdministrador();
@@ -13,8 +14,11 @@ $mensaje = $_GET['msg'] ?? '';
 
 $errorBD = '';
 $servicios = [];
+$paginacion = new Paginacion(0, 1);
 try {
-    $servicios = (new ServicioDAO())->listarTodos($busqueda, $estado);
+    $dao = new ServicioDAO();
+    $paginacion = new Paginacion($dao->contarTodos($busqueda, $estado), Paginacion::paginaPedida(), 10);
+    $servicios = $dao->listarTodos($busqueda, $estado, $paginacion->limite(), $paginacion->desplazamiento());
 } catch (PDOException $ex) {
     $errorBD = 'No se pudieron cargar los servicios.';
 }
@@ -119,5 +123,7 @@ require __DIR__ . '/layout_inicio.php';
                     </table>
                 </div>
             </div>
+
+            <?php require __DIR__ . '/paginacion.php'; ?>
 
 <?php require __DIR__ . '/layout_fin.php'; ?>

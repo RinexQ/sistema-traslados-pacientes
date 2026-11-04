@@ -15,7 +15,7 @@ class ServicioDAO {
 
     // Todos los servicios, con la cantidad de documentos activos y de encuestas que tienen.
     // $estado: 'activos', 'baja' o 'todos'
-    public function listarTodos(string $busqueda = '', string $estado = 'todos'): array {
+    public function listarTodos(string $busqueda = '', string $estado = 'todos', int $limite = 0, int $desplazamiento = 0): array {
         $sql = 'SELECT s.id_servicio, s.nombre, s.activo,
                        (SELECT COUNT(*) FROM documento d
                          WHERE d.id_servicio = s.id_servicio AND d.activo = 1) AS documentos,
@@ -37,9 +37,34 @@ class ServicioDAO {
             $sql .= ' WHERE ' . implode(' AND ', $donde);
         }
         $sql .= ' ORDER BY s.nombre';
+        if ($limite > 0) {
+            $sql .= ' LIMIT ' . (int) $limite . ' OFFSET ' . (int) $desplazamiento;
+        }
         $stmt = Conexion::obtener()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
+    }
+
+    // Cantidad de servicios que cumplen el filtro (para paginar)
+    public function contarTodos(string $busqueda = '', string $estado = 'todos'): int {
+        $sql = 'SELECT COUNT(*) FROM servicio s';
+        $donde = [];
+        $params = [];
+        if ($busqueda !== '') {
+            $donde[] = 's.nombre LIKE :q';
+            $params[':q'] = '%' . $this->escaparLike($busqueda) . '%';
+        }
+        if ($estado === 'activos') {
+            $donde[] = 's.activo = 1';
+        } elseif ($estado === 'baja') {
+            $donde[] = 's.activo = 0';
+        }
+        if (count($donde) > 0) {
+            $sql .= ' WHERE ' . implode(' AND ', $donde);
+        }
+        $stmt = Conexion::obtener()->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
     }
 
     public function obtenerPorId(int $id): ?array {

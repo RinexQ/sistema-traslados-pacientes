@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../negocio/Auth.php';
+require_once __DIR__ . '/../negocio/Paginacion.php';
 require_once __DIR__ . '/../datos/UsuarioDAO.php';
 
 Auth::exigirAdministrador();
@@ -13,8 +14,11 @@ $mensaje = $_GET['msg'] ?? '';
 
 $errorBD = '';
 $usuarios = [];
+$paginacion = new Paginacion(0, 1);
 try {
-    $usuarios = (new UsuarioDAO())->listarAdministrativos($busqueda, $estado);
+    $dao = new UsuarioDAO();
+    $paginacion = new Paginacion($dao->contarAdministrativos($busqueda, $estado), Paginacion::paginaPedida(), 10);
+    $usuarios = $dao->listarAdministrativos($busqueda, $estado, $paginacion->limite(), $paginacion->desplazamiento());
 } catch (PDOException $ex) {
     $errorBD = 'No se pudieron cargar los usuarios.';
 }
@@ -125,5 +129,7 @@ require __DIR__ . '/layout_inicio.php';
                     </table>
                 </div>
             </div>
+
+            <?php require __DIR__ . '/paginacion.php'; ?>
 
 <?php require __DIR__ . '/layout_fin.php'; ?>

@@ -20,7 +20,7 @@ class DocumentoDAO {
                 JOIN servicio s ON s.id_servicio = d.id_servicio';
 
     // Lista para el administrador. $estado: 'activos', 'baja' o 'todos'
-    public function listarAdmin(string $busqueda, int $idServicio, string $estado): array {
+    public function listarAdmin(string $busqueda, int $idServicio, string $estado, int $limite = 0, int $desplazamiento = 0): array {
         $sql = 'SELECT ' . self::COLUMNAS . ' ' . self::UNIONES;
         $donde = [];
         $params = [];
@@ -42,6 +42,9 @@ class DocumentoDAO {
             $sql .= ' WHERE ' . implode(' AND ', $donde);
         }
         $sql .= ' ORDER BY d.fecha_carga DESC, d.id_documento DESC';
+        if ($limite > 0) {
+            $sql .= ' LIMIT ' . (int) $limite . ' OFFSET ' . (int) $desplazamiento;
+        }
 
         $stmt = Conexion::obtener()->prepare($sql);
         $stmt->execute($params);
@@ -50,7 +53,7 @@ class DocumentoDAO {
 
     // Lista para el portal publico y para los usuarios basicos:
     // solo documentos activos, publicados y de servicios activos.
-    public function listarPublicos(string $busqueda, int $idServicio): array {
+    public function listarPublicos(string $busqueda, int $idServicio, int $limite = 0, int $desplazamiento = 0): array {
         $sql = 'SELECT ' . self::COLUMNAS . ' ' . self::UNIONES
              . ' WHERE d.activo = 1 AND d.visible = 1 AND s.activo = 1';
         $params = [];
@@ -64,10 +67,57 @@ class DocumentoDAO {
             $params[':servicio'] = $idServicio;
         }
         $sql .= ' ORDER BY s.nombre, d.titulo';
+        if ($limite > 0) {
+            $sql .= ' LIMIT ' . (int) $limite . ' OFFSET ' . (int) $desplazamiento;
+        }
 
         $stmt = Conexion::obtener()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
+    }
+
+    // Cantidad de documentos para el administrador (para paginar)
+    public function contarAdmin(string $busqueda, int $idServicio, string $estado): int {
+        $sql = 'SELECT COUNT(*) FROM documento d';
+        $donde = [];
+        $params = [];
+        if ($busqueda !== '') {
+            $donde[] = 'd.titulo LIKE :q';
+            $params[':q'] = '%' . $this->escaparLike($busqueda) . '%';
+        }
+        if ($idServicio > 0) {
+            $donde[] = 'd.id_servicio = :servicio';
+            $params[':servicio'] = $idServicio;
+        }
+        if ($estado === 'baja') {
+            $donde[] = 'd.activo = 0';
+        } elseif ($estado !== 'todos') {
+            $donde[] = 'd.activo = 1';
+        }
+        if (count($donde) > 0) {
+            $sql .= ' WHERE ' . implode(' AND ', $donde);
+        }
+        $stmt = Conexion::obtener()->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
+    // Cantidad de documentos del portal publico (para paginar)
+    public function contarPublicos(string $busqueda, int $idServicio): int {
+        $sql = 'SELECT COUNT(*) FROM documento d JOIN servicio s ON s.id_servicio = d.id_servicio
+                WHERE d.activo = 1 AND d.visible = 1 AND s.activo = 1';
+        $params = [];
+        if ($busqueda !== '') {
+            $sql .= ' AND d.titulo LIKE :q';
+            $params[':q'] = '%' . $this->escaparLike($busqueda) . '%';
+        }
+        if ($idServicio > 0) {
+            $sql .= ' AND d.id_servicio = :servicio';
+            $params[':servicio'] = $idServicio;
+        }
+        $stmt = Conexion::obtener()->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
     }
 
     public function obtenerPorId(int $id): ?array {

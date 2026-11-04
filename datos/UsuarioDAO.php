@@ -32,7 +32,7 @@ class UsuarioDAO {
     }
 
     // $estado: 'activos', 'baja' o 'todos'
-    public function listarAdministrativos(string $busqueda = '', string $estado = 'todos'): array {
+    public function listarAdministrativos(string $busqueda = '', string $estado = 'todos', int $limite = 0, int $desplazamiento = 0): array {
         $sql = "SELECT id_admin, ci, nombre, email, rol, activo, (password_hash <> '') AS tiene_password
                 FROM administrativo";
         $donde = [];
@@ -53,9 +53,37 @@ class UsuarioDAO {
             $sql .= ' WHERE ' . implode(' AND ', $donde);
         }
         $sql .= ' ORDER BY nombre';
+        if ($limite > 0) {
+            $sql .= ' LIMIT ' . (int) $limite . ' OFFSET ' . (int) $desplazamiento;
+        }
         $stmt = Conexion::obtener()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
+    }
+
+    // Cantidad de usuarios que cumplen el filtro (para paginar)
+    public function contarAdministrativos(string $busqueda = '', string $estado = 'todos'): int {
+        $sql = 'SELECT COUNT(*) FROM administrativo';
+        $donde = [];
+        $params = [];
+        if ($busqueda !== '') {
+            $donde[] = '(nombre LIKE :q1 OR ci LIKE :q2 OR email LIKE :q3)';
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $busqueda) . '%';
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
+        }
+        if ($estado === 'activos') {
+            $donde[] = 'activo = 1';
+        } elseif ($estado === 'baja') {
+            $donde[] = 'activo = 0';
+        }
+        if (count($donde) > 0) {
+            $sql .= ' WHERE ' . implode(' AND ', $donde);
+        }
+        $stmt = Conexion::obtener()->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
     }
 
     public function existeCi(string $ci, int $excluirId = 0): bool {

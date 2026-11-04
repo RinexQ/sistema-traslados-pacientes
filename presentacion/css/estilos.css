@@ -405,3 +405,45 @@ a:hover{ color:var(--color-oscuro); }
 
     .cabecera-publica{ border-radius:0 0 20px 20px; }
 }
+
+/* ---------- Indicadores del panel y graficos de resultados ---------- */
+
+.indicador{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    height:100%;
+    padding:16px 18px;
+    background:#fff;
+    border-radius:14px;
+    box-shadow:var(--sombra);
+}
+
+.indicador-icono{
+    flex:0 0 52px;
+    width:52px;
+    height:52px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    font-size:1.5rem;
+}
+
+.indicador-valor{
+    font-size:1.7rem;
+    font-weight:700;
+    line-height:1.1;
+    color:#0f172a;
+}
+
+.indicador-etiqueta{
+    font-size:.82rem;
+    color:#64748b;
+}
+
+.contenedor-grafico{
+    position:relative;
+    width:100%;
+    height:260px;
+}

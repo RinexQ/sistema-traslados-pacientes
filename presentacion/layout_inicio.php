@@ -28,10 +28,11 @@ if ($esAdminLayout) {
 }
 $menu[] = ['documentos', 'documentos_listar.php', 'bi-file-earmark-text', 'Documentación'];
 if ($esAdminLayout) {
-    $menu[] = ['encuestas', 'encuestas_reporte.php', 'bi-bar-chart', 'Encuestas'];
+    $menu[] = ['encuestas', 'encuestas.php', 'bi-clipboard-check', 'Encuestas'];
     $menu[] = ['servicios', 'servicios.php', 'bi-diagram-3', 'Servicios'];
     $menu[] = ['usuarios', 'usuarios.php', 'bi-person-badge', 'Usuarios'];
     $menu[] = ['qr', 'qr_portal.php', 'bi-qr-code', 'Código QR'];
+    $menu[] = ['auditoria', 'auditoria.php', 'bi-journal-text', 'Registro de acciones'];
 }
 $menu[] = ['password', 'cambiar_password.php', 'bi-key', 'Mi contraseña'];
 // ?salir=1 cierra la sesion (lo atiende Auth::exigirSesion en cada pagina)
@@ -42,7 +43,7 @@ $busquedaActual = $_GET['q'] ?? '';
 // Grupos del menu (los titulos chicos que separan las secciones)
 $grupoMenu = [
     'index' => 'Principal', 'solicitudes' => 'Principal', 'ambulancias' => 'Principal', 'documentos' => 'Principal',
-    'encuestas' => 'Administración', 'servicios' => 'Administración', 'usuarios' => 'Administración', 'qr' => 'Administración',
+    'encuestas' => 'Administración', 'servicios' => 'Administración', 'usuarios' => 'Administración', 'qr' => 'Administración', 'auditoria' => 'Administración',
     'password' => 'Cuenta', 'salir' => 'Cuenta',
 ];
 $nombreUsuario = $usuarioLayout['nombre'] ?? '';

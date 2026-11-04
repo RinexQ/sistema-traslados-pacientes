@@ -1,21 +1,12 @@
 -- =====================================================================
--- S.I.G.S.M. - Instalacion completa de la base de datos (un solo archivo)
+-- S.I.G.S.M. - Instalacion completa para HOSTING (InfinityFree y similares)
 --
--- Crea la base 'traslados_pacientes', todas las tablas y los datos
--- ficticios de prueba. Importar UNA SOLA VEZ en una base nueva.
---
--- En un hosting compartido (que no deja crear bases por SQL): crear la base
--- desde el panel, seleccionarla en phpMyAdmin y borrar de este archivo las
--- dos lineas siguientes (CREATE DATABASE y USE).
+-- Antes de importar: crear la base desde el panel del hosting y
+-- SELECCIONARLA en phpMyAdmin (panel izquierdo). Importar UNA SOLA VEZ.
 -- =====================================================================
 
-CREATE DATABASE IF NOT EXISTS traslados_pacientes
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE traslados_pacientes;
-
 -- =====================================================================
--- PARTE 1 de 6 (antes: traslados_pacientes_v2.sql)
+-- PARTE 1 de 7 (antes: traslados_pacientes_v2.sql)
 -- =====================================================================
 
 CREATE TABLE administrativo (
@@ -118,7 +109,7 @@ CREATE TABLE carga (
 );
 
 -- =====================================================================
--- PARTE 2 de 6 (antes: agregar_login.sql)
+-- PARTE 2 de 7 (antes: agregar_login.sql)
 -- =====================================================================
 
 ALTER TABLE administrativo
@@ -135,7 +126,7 @@ VALUES (
 );
 
 -- =====================================================================
--- PARTE 3 de 6 (antes: datos_prueba_ampliado.sql)
+-- PARTE 3 de 7 (antes: datos_prueba_ampliado.sql)
 -- =====================================================================
 
 INSERT INTO administrativo (nombre, email) VALUES
@@ -224,7 +215,7 @@ INSERT INTO carga (id_traslado, tipo_elemento, ci_paciente) VALUES
 (5, 'Tanque de oxigeno', '55555555');
 
 -- =====================================================================
--- PARTE 4 de 6 (antes: actualizacion_ejes.sql)
+-- PARTE 4 de 7 (antes: actualizacion_ejes.sql)
 -- =====================================================================
 
 CREATE TABLE servicio (
@@ -378,7 +369,7 @@ VALUES
  (SELECT id_admin FROM administrativo WHERE email = 'medico@sirius.com'));
 
 -- =====================================================================
--- PARTE 5 de 6 (antes: actualizacion_requerimientos.sql)
+-- PARTE 5 de 7 (antes: actualizacion_requerimientos.sql)
 -- =====================================================================
 
 ALTER TABLE administrativo ADD COLUMN ci VARCHAR(8) NULL AFTER nombre;
@@ -434,7 +425,7 @@ FROM documento
 WHERE id_documento NOT IN (SELECT id_documento FROM codigo_qr);
 
 -- =====================================================================
--- PARTE 6 de 6 (antes: actualizacion_entrega3.sql)
+-- PARTE 6 de 7 (antes: actualizacion_entrega3.sql)
 -- =====================================================================
 
 -- =====================================================================
@@ -579,3 +570,230 @@ CROSS JOIN (SELECT 1 AS c UNION ALL SELECT 2 UNION ALL SELECT 4 UNION ALL SELECT
 -- ---------------------------------------------------------------------
 DROP TABLE IF EXISTS codigo_qr;
 
+-- =====================================================================
+-- PARTE 7 de 7 (antes: actualizacion_excelencia.sql)
+-- =====================================================================
+
+-- =====================================================================
+-- Excelencia 3 a 6: ejecutar UNA SOLA VEZ sobre la base ya instalada
+-- (con instalar_todo.sql o instalar_todo_hosting.sql).
+-- Hay que tener seleccionada la base de datos antes de importar.
+--
+--   3. Constructor de encuestas: preguntas, opciones, estados y versiones.
+--   4. Respuestas por envio, con token para no duplicar.
+--   5. (Las estadisticas y el CSV usan estas mismas tablas.)
+--   6. Registro de acciones importantes (auditoria).
+--
+-- Las 3 encuestas y las respuestas que ya existian se conservan: se
+-- convierten a la estructura nueva (una pregunta de valoracion de 1 a 5).
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 1. ENCUESTA: descripcion, estado (borrador / publicada / cerrada) y versiones
+-- ---------------------------------------------------------------------
+ALTER TABLE encuesta ADD COLUMN descripcion VARCHAR(500) NULL;
+ALTER TABLE encuesta ADD COLUMN estado ENUM('borrador','publicada','cerrada') NOT NULL DEFAULT 'borrador';
+ALTER TABLE encuesta ADD COLUMN version INT NOT NULL DEFAULT 1;
+ALTER TABLE encuesta ADD COLUMN id_encuesta_origen INT NULL;   -- primera version de la encuesta
+ALTER TABLE encuesta ADD COLUMN fecha_creacion DATETIME NULL;
+ALTER TABLE encuesta ADD COLUMN fecha_publicacion DATETIME NULL;
+ALTER TABLE encuesta ADD COLUMN fecha_cierre DATETIME NULL;
+
+-- Las encuestas que ya estaban pasan a estar publicadas
+UPDATE encuesta
+SET estado = 'publicada', id_encuesta_origen = id_encuesta,
+    fecha_creacion = NOW(), fecha_publicacion = NOW();
+
+ALTER TABLE encuesta
+    ADD CONSTRAINT fk_encuesta_origen FOREIGN KEY (id_encuesta_origen) REFERENCES encuesta(id_encuesta);
+
+-- ---------------------------------------------------------------------
+-- 2. PREGUNTAS Y OPCIONES
+--    tipo: unica (una opcion), multiple (varias), valoracion (1 a 5), texto (breve)
+-- ---------------------------------------------------------------------
+CREATE TABLE encuesta_pregunta (
+    id_pregunta INT AUTO_INCREMENT PRIMARY KEY,
+    id_encuesta INT NOT NULL,
+    orden       INT NOT NULL,
+    texto       VARCHAR(255) NOT NULL,
+    tipo        ENUM('unica','multiple','valoracion','texto') NOT NULL,
+    obligatoria BOOLEAN NOT NULL DEFAULT TRUE,
+    FOREIGN KEY (id_encuesta) REFERENCES encuesta(id_encuesta)
+);
+
+CREATE TABLE encuesta_opcion (
+    id_opcion   INT AUTO_INCREMENT PRIMARY KEY,
+    id_pregunta INT NOT NULL,
+    orden       INT NOT NULL,
+    texto       VARCHAR(150) NOT NULL,
+    FOREIGN KEY (id_pregunta) REFERENCES encuesta_pregunta(id_pregunta)
+);
+
+-- ---------------------------------------------------------------------
+-- 3. ENVIOS Y RESPUESTAS
+--    Un envio es una persona que completo la encuesta (sin identificarla):
+--    solo se guarda la fecha y un token unico que evita enviar dos veces
+--    lo mismo al recargar la pagina.
+-- ---------------------------------------------------------------------
+CREATE TABLE envio (
+    id_envio    INT AUTO_INCREMENT PRIMARY KEY,
+    id_encuesta INT NOT NULL,
+    token       VARCHAR(64) NOT NULL UNIQUE,
+    fecha       DATETIME NOT NULL,
+    FOREIGN KEY (id_encuesta) REFERENCES encuesta(id_encuesta)
+);
+
+CREATE TABLE envio_respuesta (
+    id_detalle  INT AUTO_INCREMENT PRIMARY KEY,
+    id_envio    INT NOT NULL,
+    id_pregunta INT NOT NULL,
+    id_opcion   INT NULL,          -- preguntas de opcion unica o multiple
+    valor       INT NULL,          -- valoracion de 1 a 5
+    texto       VARCHAR(500) NULL, -- respuesta de texto breve
+    FOREIGN KEY (id_envio)    REFERENCES envio(id_envio),
+    FOREIGN KEY (id_pregunta) REFERENCES encuesta_pregunta(id_pregunta),
+    FOREIGN KEY (id_opcion)   REFERENCES encuesta_opcion(id_opcion)
+);
+
+-- ---------------------------------------------------------------------
+-- 4. Se conservan las encuestas y respuestas anteriores en la estructura nueva
+-- ---------------------------------------------------------------------
+INSERT INTO encuesta_pregunta (id_encuesta, orden, texto, tipo, obligatoria)
+SELECT id_encuesta, 1, pregunta, 'valoracion', TRUE FROM encuesta;
+
+INSERT INTO envio (id_envio, id_encuesta, token, fecha)
+SELECT id_respuesta, id_encuesta, CONCAT('anterior-', id_respuesta), COALESCE(fecha, NOW())
+FROM respuesta;
+
+INSERT INTO envio_respuesta (id_envio, id_pregunta, valor)
+SELECT r.id_respuesta, p.id_pregunta, r.calificacion
+FROM respuesta r
+JOIN encuesta_pregunta p ON p.id_encuesta = r.id_encuesta AND p.orden = 1
+WHERE r.calificacion IS NOT NULL;
+
+DROP TABLE respuesta;
+ALTER TABLE encuesta DROP COLUMN pregunta;
+
+-- ---------------------------------------------------------------------
+-- 5. Encuestas de prueba: una publicada con los 4 tipos de pregunta,
+--    una en borrador y una cerrada
+-- ---------------------------------------------------------------------
+INSERT INTO encuesta (titulo, descripcion, es_anonima, id_admin_creador, id_servicio, estado, version,
+                      fecha_creacion, fecha_publicacion, fecha_cierre) VALUES
+('Experiencia general de la consulta', 'Contanos cómo fue tu consulta en el hospital.', TRUE,
+ (SELECT id_admin FROM administrativo WHERE rol = 'administrador' ORDER BY id_admin LIMIT 1),
+ NULL, 'publicada', 1, NOW(), NOW(), NULL),
+('Encuesta de limpieza y confort (borrador)', 'Todavía no está publicada: se puede seguir editando.', TRUE,
+ (SELECT id_admin FROM administrativo WHERE rol = 'administrador' ORDER BY id_admin LIMIT 1),
+ (SELECT id_servicio FROM servicio WHERE nombre = 'Información general'), 'borrador', 1, NOW(), NULL, NULL),
+('Encuesta de visitas (cerrada)', 'Encuesta cerrada: ya no recibe respuestas.', TRUE,
+ (SELECT id_admin FROM administrativo WHERE rol = 'administrador' ORDER BY id_admin LIMIT 1),
+ NULL, 'cerrada', 1, NOW(), NOW(), NOW());
+
+UPDATE encuesta SET id_encuesta_origen = id_encuesta WHERE id_encuesta_origen IS NULL;
+
+INSERT INTO encuesta_pregunta (id_encuesta, orden, texto, tipo, obligatoria)
+SELECT id_encuesta, 1, '¿Cómo llegaste al hospital?', 'unica', TRUE
+  FROM encuesta WHERE titulo = 'Experiencia general de la consulta'
+UNION ALL
+SELECT id_encuesta, 2, '¿Qué aspectos te parecieron buenos?', 'multiple', FALSE
+  FROM encuesta WHERE titulo = 'Experiencia general de la consulta'
+UNION ALL
+SELECT id_encuesta, 3, '¿Cómo calificás la atención recibida?', 'valoracion', TRUE
+  FROM encuesta WHERE titulo = 'Experiencia general de la consulta'
+UNION ALL
+SELECT id_encuesta, 4, '¿Querés dejarnos un comentario?', 'texto', FALSE
+  FROM encuesta WHERE titulo = 'Experiencia general de la consulta'
+UNION ALL
+SELECT id_encuesta, 1, '¿Cómo calificás la limpieza de las instalaciones?', 'valoracion', TRUE
+  FROM encuesta WHERE titulo = 'Encuesta de limpieza y confort (borrador)'
+UNION ALL
+SELECT id_encuesta, 2, '¿Qué sector necesita más limpieza?', 'unica', TRUE
+  FROM encuesta WHERE titulo = 'Encuesta de limpieza y confort (borrador)'
+UNION ALL
+SELECT id_encuesta, 1, '¿Cómo calificás el horario de visitas?', 'valoracion', TRUE
+  FROM encuesta WHERE titulo = 'Encuesta de visitas (cerrada)';
+
+INSERT INTO encuesta_opcion (id_pregunta, orden, texto)
+SELECT p.id_pregunta, o.n, o.t
+FROM encuesta_pregunta p
+CROSS JOIN (SELECT 1 AS n, 'En auto o moto' AS t UNION ALL SELECT 2, 'En transporte público' UNION ALL SELECT 3, 'A pie') o
+WHERE p.texto = '¿Cómo llegaste al hospital?';
+
+INSERT INTO encuesta_opcion (id_pregunta, orden, texto)
+SELECT p.id_pregunta, o.n, o.t
+FROM encuesta_pregunta p
+CROSS JOIN (SELECT 1 AS n, 'Rapidez' AS t UNION ALL SELECT 2, 'Trato del personal' UNION ALL SELECT 3, 'Limpieza' UNION ALL SELECT 4, 'Información recibida') o
+WHERE p.texto = '¿Qué aspectos te parecieron buenos?';
+
+INSERT INTO encuesta_opcion (id_pregunta, orden, texto)
+SELECT p.id_pregunta, o.n, o.t
+FROM encuesta_pregunta p
+CROSS JOIN (SELECT 1 AS n, 'Baños' AS t UNION ALL SELECT 2, 'Sala de espera' UNION ALL SELECT 3, 'Pasillos') o
+WHERE p.texto = '¿Qué sector necesita más limpieza?';
+
+-- Envios de prueba: 12 en la encuesta general y 4 en la cerrada (en distintos dias)
+INSERT INTO envio (id_encuesta, token, fecha)
+SELECT e.id_encuesta, CONCAT('prueba-', e.id_encuesta, '-', n.n), DATE_SUB(NOW(), INTERVAL n.n DAY)
+FROM encuesta e
+CROSS JOIN (SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
+            UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+            UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12) n
+WHERE e.titulo = 'Experiencia general de la consulta'
+   OR (e.titulo = 'Encuesta de visitas (cerrada)' AND n.n <= 4);
+
+-- Opcion unica
+INSERT INTO envio_respuesta (id_envio, id_pregunta, id_opcion)
+SELECT ev.id_envio, p.id_pregunta, o.id_opcion
+FROM envio ev
+JOIN encuesta_pregunta p ON p.id_encuesta = ev.id_encuesta AND p.tipo = 'unica'
+JOIN encuesta_opcion o ON o.id_pregunta = p.id_pregunta AND o.orden = 1 + (ev.id_envio % 3)
+WHERE ev.token LIKE 'prueba-%';
+
+-- Opcion multiple (dos opciones distintas por envio)
+INSERT INTO envio_respuesta (id_envio, id_pregunta, id_opcion)
+SELECT ev.id_envio, p.id_pregunta, o.id_opcion
+FROM envio ev
+JOIN encuesta_pregunta p ON p.id_encuesta = ev.id_encuesta AND p.tipo = 'multiple'
+JOIN encuesta_opcion o ON o.id_pregunta = p.id_pregunta AND o.orden = 1 + (ev.id_envio % 4)
+WHERE ev.token LIKE 'prueba-%'
+UNION ALL
+SELECT ev.id_envio, p.id_pregunta, o.id_opcion
+FROM envio ev
+JOIN encuesta_pregunta p ON p.id_encuesta = ev.id_encuesta AND p.tipo = 'multiple'
+JOIN encuesta_opcion o ON o.id_pregunta = p.id_pregunta AND o.orden = 1 + ((ev.id_envio + 1) % 4)
+WHERE ev.token LIKE 'prueba-%';
+
+-- Valoracion de 1 a 5
+INSERT INTO envio_respuesta (id_envio, id_pregunta, valor)
+SELECT ev.id_envio, p.id_pregunta,
+       CASE WHEN ev.id_envio % 7 = 0 THEN 1
+            WHEN ev.id_envio % 5 = 0 THEN 2
+            ELSE 3 + (ev.id_envio % 3) END
+FROM envio ev
+JOIN encuesta_pregunta p ON p.id_encuesta = ev.id_encuesta AND p.tipo = 'valoracion'
+WHERE ev.token LIKE 'prueba-%';
+
+-- Texto breve (solo algunos envios dejan comentario)
+INSERT INTO envio_respuesta (id_envio, id_pregunta, texto)
+SELECT ev.id_envio, p.id_pregunta,
+       CASE ev.id_envio % 2 WHEN 0 THEN 'Muy buena atención, gracias.' ELSE 'Esperé bastante en la sala de espera.' END
+FROM envio ev
+JOIN encuesta_pregunta p ON p.id_encuesta = ev.id_encuesta AND p.tipo = 'texto'
+WHERE ev.token LIKE 'prueba-%' AND ev.id_envio % 3 = 0;
+
+-- ---------------------------------------------------------------------
+-- 6. REGISTRO DE ACCIONES IMPORTANTES: quien hizo que y cuando
+-- ---------------------------------------------------------------------
+CREATE TABLE auditoria (
+    id_auditoria INT AUTO_INCREMENT PRIMARY KEY,
+    id_admin     INT NULL,
+    accion       VARCHAR(40)  NOT NULL,   -- por ejemplo: documento_baja, encuesta_publicacion
+    entidad      VARCHAR(30)  NOT NULL,   -- documento, usuario, servicio, encuesta, pregunta o sesion
+    id_entidad   INT NULL,
+    detalle      VARCHAR(500) NOT NULL,
+    fecha        DATETIME NOT NULL,
+    FOREIGN KEY (id_admin) REFERENCES administrativo(id_admin)
+);
+
+CREATE INDEX idx_auditoria_fecha ON auditoria (fecha);

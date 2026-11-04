@@ -2,6 +2,7 @@
 // Baja logica y reactivacion de servicios (solo administrador, solo por POST con token CSRF).
 // Los documentos y encuestas del servicio no se tocan: dejan de mostrarse mientras este dado de baja.
 require_once __DIR__ . '/../negocio/Auth.php';
+require_once __DIR__ . '/../negocio/Auditoria.php';
 require_once __DIR__ . '/../datos/ServicioDAO.php';
 
 Auth::exigirAdministrador();
@@ -19,8 +20,11 @@ $resultado = 'error';
 if ($id > 0 && in_array($accion, ['baja', 'reactivar'], true)) {
     try {
         $dao = new ServicioDAO();
-        if ($dao->obtenerPorId($id) !== null) {
+        $servicio = $dao->obtenerPorId($id);
+        if ($servicio !== null) {
             $dao->cambiarEstado($id, $accion === 'reactivar');
+            Auditoria::registrar($accion === 'reactivar' ? 'servicio_reactivacion' : 'servicio_baja', 'servicio', $id,
+                ($accion === 'reactivar' ? 'Servicio reactivado: ' : 'Servicio dado de baja: ') . $servicio['nombre']);
             $resultado = $accion === 'reactivar' ? 'reactivado' : 'baja';
         }
     } catch (PDOException $ex) {

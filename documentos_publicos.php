@@ -2,6 +2,7 @@
 // Documentos para pacientes (publico). Se busca por titulo y se filtra por servicio.
 // Solo aparecen los documentos activos y publicados de servicios activos.
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/negocio/Paginacion.php';
 require_once __DIR__ . '/datos/DocumentoDAO.php';
 require_once __DIR__ . '/datos/ServicioDAO.php';
 
@@ -12,10 +13,13 @@ $idServicio = (int) ($_GET['servicio'] ?? 0);
 $documentos = [];
 $servicios  = [];
 $error = '';
+$paginacion = new Paginacion(0, 1);
 
 try {
     $servicios  = (new ServicioDAO())->listarActivos();
-    $documentos = (new DocumentoDAO())->listarPublicos($busqueda, $idServicio);
+    $dao = new DocumentoDAO();
+    $paginacion = new Paginacion($dao->contarPublicos($busqueda, $idServicio), Paginacion::paginaPedida(), 10);
+    $documentos = $dao->listarPublicos($busqueda, $idServicio, $paginacion->limite(), $paginacion->desplazamiento());
 } catch (PDOException $ex) {
     $error = 'No se pudo cargar el material en este momento.';
 }
@@ -91,6 +95,8 @@ try {
                 </div>
             <?php endforeach; ?>
         </div>
+
+        <?php require __DIR__ . '/presentacion/paginacion.php'; ?>
 
         <div class="alert alert-primary mt-4 mb-0">
             ¿Te atendiste en el hospital? Contanos cómo fue tu experiencia:

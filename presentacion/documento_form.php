@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../negocio/Auth.php';
 require_once __DIR__ . '/../negocio/Documento.php';
 require_once __DIR__ . '/../negocio/ArchivoPdf.php';
+require_once __DIR__ . '/../negocio/Auditoria.php';
 require_once __DIR__ . '/../datos/DocumentoDAO.php';
 require_once __DIR__ . '/../datos/ServicioDAO.php';
 
@@ -77,10 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($rutaVieja !== null) {
                         ArchivoPdf::eliminar($rutaVieja); // el PDF reemplazado se borra del servidor
                     }
+                    Auditoria::registrar('documento_edicion', 'documento', $id,
+                        'Documento editado: «' . $documento->titulo . '»' . ($rutaVieja !== null ? ' (PDF reemplazado)' : ''));
                     header('Location: documentos_listar.php?msg=editado');
                 } else {
-                    $dao->crear($documento->titulo, $documento->descripcion, $rutaNueva,
+                    $nuevoId = $dao->crear($documento->titulo, $documento->descripcion, $rutaNueva,
                         (int) $usuario['identificador'], $idServicio, $publicado);
+                    Auditoria::registrar('documento_alta', 'documento', $nuevoId, 'Documento cargado: «' . $documento->titulo . '»');
                     header('Location: documentos_listar.php?msg=creado');
                 }
                 exit;

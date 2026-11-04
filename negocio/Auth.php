@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/Csrf.php';
 require_once __DIR__ . '/../datos/UsuarioDAO.php';
+require_once __DIR__ . '/../datos/AuditoriaDAO.php';
 
 class Auth {
 
@@ -78,6 +79,15 @@ class Auth {
 
         // Cerrar sesion: cualquier pagina protegida con ?salir=1
         if (isset($_GET['salir'])) {
+            $actual = self::usuarioActual();
+            if ($actual !== null) {
+                try {
+                    (new AuditoriaDAO())->registrar((int) $actual['identificador'], 'logout', 'sesion',
+                        (int) $actual['identificador'], 'Cierre de sesión de ' . $actual['nombre']);
+                } catch (Throwable $ex) {
+                    // el registro es un complemento: no impide cerrar la sesion
+                }
+            }
             self::cerrarSesion();
             header('Location: ' . self::url('login.php'));
             exit;

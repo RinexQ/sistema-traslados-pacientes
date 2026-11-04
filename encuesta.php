@@ -1,9 +1,10 @@
 <?php
 // Encuestas de satisfaccion (publicas). No piden sesion ni datos personales:
-// la respuesta guarda solo la calificacion y la fecha.
+// del envio solo se guarda la fecha y las respuestas.
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/negocio/Auth.php';
 require_once __DIR__ . '/negocio/Recaptcha.php';
-require_once __DIR__ . '/negocio/RespuestaEncuesta.php';
+require_once __DIR__ . '/negocio/EnvioEncuesta.php';
 require_once __DIR__ . '/datos/EncuestaDAO.php';
 require_once __DIR__ . '/datos/ServicioDAO.php';
 
@@ -17,51 +18,88 @@ $gracias    = isset($_GET['gracias']);
 $dao = new EncuestaDAO();
 $errores = [];
 $encuesta = null;
+$preguntas = [];
 $encuestas = [];
 $servicios = [];
+$usaRecaptcha = Recaptcha::activo();
+
+Auth::iniciar();
 
 try {
-    if ($id > 0) {
+    if ($id > 0 && !$gracias) {
         $encuesta = $dao->obtenerPublica($id);
         if ($encuesta === null) {
-            $errores[] = 'La encuesta no está disponible.';
+            $existente = $dao->obtener($id);
+            $errores[] = ($existente !== null && $existente['estado'] === 'cerrada')
+                ? 'Esta encuesta ya está cerrada y no recibe más respuestas.'
+                : 'La encuesta no está disponible.';
+        } else {
+            $preguntas = $dao->preguntas($id);
         }
     }
-    if ($encuesta === null) {
+    if ($encuesta === null && !$gracias) {
         $servicios = (new ServicioDAO())->listarActivos();
         $encuestas = $dao->listarPublicas($busqueda, $idServicio);
     }
 } catch (PDOException $ex) {
+    $encuesta = null;
     $errores[] = 'No se pudo cargar la encuesta en este momento.';
 }
 
-$calificacion = 0;
-$usaRecaptcha = Recaptcha::activo();
+$valores = [];
+$tokenEnvio = '';
 
-if ($encuesta !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    Csrf::exigir();
+if ($encuesta !== null) {
+    $tokenPedido = (string) ($_POST['token_envio'] ?? '');
+    $tokenVigente = preg_match('/^[a-f0-9]{32}$/', $tokenPedido)
+        && (int) ($_SESSION['envio_tokens'][$tokenPedido] ?? 0) === $id;
 
-    $respuesta = new RespuestaEncuesta($id, $_POST);
-    $errores = $respuesta->validar();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        Csrf::exigir();
+        $valores = (isset($_POST['p']) && is_array($_POST['p'])) ? $_POST['p'] : [];
 
-    // Verificacion anti-robots: casilla "No soy un robot" de Google
-    if ($usaRecaptcha && !Recaptcha::verificar($_POST['g-recaptcha-response'] ?? '')) {
-        $errores[] = 'Marcá la casilla "No soy un robot" para poder enviar.';
-    }
+        if (!$tokenVigente) {
+            $errores[] = 'Este formulario ya fue enviado o venció. Volvé a abrir la encuesta para responderla.';
+        } else {
+            // Se valida que las preguntas y opciones sean de esta encuesta y el formato de cada tipo
+            [$errores, $respuestas] = EnvioEncuesta::validar($preguntas, $_POST);
 
-    if (count($errores) === 0) {
-        try {
-            $dao->guardarRespuesta($respuesta);
-            // Redirigimos para que recargar la pagina no vuelva a enviar la respuesta
-            header('Location: encuesta.php?id=' . $id . '&gracias=1');
-            exit;
-        } catch (PDOException $ex) {
-            $errores[] = 'No se pudo guardar tu respuesta. Intentá de nuevo.';
+            if (count($errores) === 0 && count($respuestas) === 0) {
+                $errores[] = 'Respondé al menos una pregunta antes de enviar.';
+            }
+            // Verificacion anti-robots: casilla "No soy un robot" de Google
+            if ($usaRecaptcha && !Recaptcha::verificar($_POST['g-recaptcha-response'] ?? '')) {
+                $errores[] = 'Marcá la casilla "No soy un robot" para poder enviar.';
+            }
+
+            if (count($errores) === 0) {
+                try {
+                    $guardado = $dao->guardarEnvio($id, $tokenPedido, $respuestas);
+                    unset($_SESSION['envio_tokens'][$tokenPedido]);
+                    if ($guardado) {
+                        // Se redirige para que recargar la pagina no vuelva a enviar la respuesta
+                        header('Location: encuesta.php?id=' . $id . '&gracias=1');
+                        exit;
+                    }
+                    $errores[] = 'Esta respuesta ya se había enviado o la encuesta se cerró.';
+                } catch (PDOException $ex) {
+                    $errores[] = 'No se pudo guardar tu respuesta. Intentá de nuevo.';
+                }
+            }
         }
     }
-    $calificacion = $respuesta->calificacion;
-}
 
+    // Cada vez que se muestra el formulario hay un token que solo sirve para un envio
+    if ($tokenVigente && count($errores) > 0 && isset($_SESSION['envio_tokens'][$tokenPedido])) {
+        $tokenEnvio = $tokenPedido;
+    } else {
+        $tokenEnvio = bin2hex(random_bytes(16));
+        $_SESSION['envio_tokens'][$tokenEnvio] = $id;
+        if (count($_SESSION['envio_tokens']) > 20) {
+            array_shift($_SESSION['envio_tokens']); // se descartan los mas viejos
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -84,7 +122,7 @@ if ($encuesta !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container py-4" style="max-width: 700px;">
         <p><a href="portal.php"><i class="bi bi-arrow-left"></i> Volver a la portada</a></p>
 
-        <?php if ($gracias && $encuesta !== null): ?>
+        <?php if ($gracias): ?>
             <div class="alert alert-success">
                 ¡Gracias por responder! Tu opinión es anónima y nos ayuda a mejorar la atención.
             </div>
@@ -123,9 +161,14 @@ if ($encuesta !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="list-group">
                 <?php foreach ($encuestas as $e): ?>
                     <a class="list-group-item list-group-item-action" href="encuesta.php?id=<?= (int) $e['id_encuesta'] ?>">
-                        <?= esc($e['titulo']) ?>
-                        <?php if (!empty($e['servicio'])): ?>
-                            <span class="badge bg-secondary ms-2"><?= esc($e['servicio']) ?></span>
+                        <div class="fw-semibold">
+                            <?= esc($e['titulo']) ?>
+                            <?php if (!empty($e['servicio'])): ?>
+                                <span class="badge bg-secondary ms-2"><?= esc($e['servicio']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                        <?php if (!empty($e['descripcion'])): ?>
+                            <div class="small text-muted"><?= esc($e['descripcion']) ?></div>
                         <?php endif; ?>
                     </a>
                 <?php endforeach; ?>
@@ -136,9 +179,12 @@ if ($encuesta !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <?php else: ?>
 
-            <h2 class="h5 mb-3"><?= esc($encuesta['titulo']) ?></h2>
+            <h2 class="h5 mb-1"><?= esc($encuesta['titulo']) ?></h2>
+            <?php if (!empty($encuesta['descripcion'])): ?>
+                <p class="mb-1"><?= esc($encuesta['descripcion']) ?></p>
+            <?php endif; ?>
             <p class="text-muted small">
-                Esta encuesta es anónima: no te pedimos ningún dato personal.
+                Esta encuesta es anónima: no te pedimos ningún dato personal. Las preguntas con * son obligatorias.
             </p>
 
             <?php if (count($errores) > 0): ?>
@@ -155,22 +201,9 @@ if ($encuesta !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="card-body d-block">
                     <form method="post" id="form-encuesta" novalidate>
                         <?= Csrf::campo() ?>
+                        <input type="hidden" name="token_envio" value="<?= esc($tokenEnvio) ?>">
 
-                        <div class="mb-3" id="grupo-calificacion">
-                            <label class="form-label d-block fw-semibold"><?= esc($encuesta['pregunta']) ?></label>
-                            <?php $etiquetas = [1 => 'Muy mala', 2 => 'Mala', 3 => 'Regular', 4 => 'Buena', 5 => 'Excelente']; ?>
-                            <?php for ($n = 1; $n <= 5; $n++): ?>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="calificacion"
-                                           id="calificacion<?= $n ?>" value="<?= $n ?>"
-                                           <?= $calificacion === $n ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="calificacion<?= $n ?>">
-                                        <?= $n ?> - <?= esc($etiquetas[$n]) ?>
-                                    </label>
-                                </div>
-                            <?php endfor; ?>
-                            <div class="text-danger small mt-1" id="error-calificacion"></div>
-                        </div>
+                        <?php require __DIR__ . '/presentacion/encuesta_campos.php'; ?>
 
                         <?php if ($usaRecaptcha): ?>
                             <div class="mb-3">
@@ -179,7 +212,7 @@ if ($encuesta !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                         <?php endif; ?>
 
-                        <button type="submit" class="btn btn-primary">Enviar respuesta</button>
+                        <button type="submit" class="btn btn-primary">Enviar respuestas</button>
                         <a href="encuesta.php" class="btn btn-secondary">Cancelar</a>
                     </form>
                 </div>

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/negocio/Auth.php';
 require_once __DIR__ . '/negocio/Usuario.php';
+require_once __DIR__ . '/negocio/Auditoria.php';
 require_once __DIR__ . '/negocio/Recaptcha.php';
 
 Auth::iniciar();
@@ -38,6 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($usuario !== null) {
             Auth::guardarUsuario($usuario);
+            Auditoria::registrar('login', 'sesion', (int) $usuario->identificador, 'Inicio de sesión de ' . $usuario->nombre);
             header('Location: ' . Auth::url('presentacion/index.php'));
             exit;
         }

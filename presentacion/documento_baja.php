@@ -2,6 +2,7 @@
 // Baja logica y reactivacion de documentos (solo administrador, solo por POST con token CSRF).
 // El documento no se borra: queda registrado y su PDF se conserva, pero deja de poder abrirse.
 require_once __DIR__ . '/../negocio/Auth.php';
+require_once __DIR__ . '/../negocio/Auditoria.php';
 require_once __DIR__ . '/../datos/DocumentoDAO.php';
 
 Auth::exigirAdministrador();
@@ -19,9 +20,12 @@ $resultado = 'error';
 if ($id > 0 && in_array($accion, ['baja', 'reactivar'], true)) {
     try {
         $dao = new DocumentoDAO();
-        if ($dao->obtenerPorId($id) !== null) {
+        $documento = $dao->obtenerPorId($id);
+        if ($documento !== null) {
             $usuario = Auth::usuarioActual();
             $dao->cambiarEstado($id, $accion === 'reactivar', (int) $usuario['identificador']);
+            Auditoria::registrar($accion === 'reactivar' ? 'documento_reactivacion' : 'documento_baja', 'documento', $id,
+                ($accion === 'reactivar' ? 'Documento reactivado: «' : 'Documento dado de baja: «') . $documento['titulo'] . '»');
             $resultado = $accion === 'reactivar' ? 'reactivado' : 'baja';
         }
     } catch (PDOException $ex) {

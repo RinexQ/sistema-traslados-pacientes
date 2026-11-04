@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../negocio/Auth.php';
 require_once __DIR__ . '/../negocio/Servicio.php';
+require_once __DIR__ . '/../negocio/Auditoria.php';
 require_once __DIR__ . '/../datos/ServicioDAO.php';
 
 // Alta y edicion de servicios (solo administrador)
@@ -34,9 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (count($errores) === 0) {
             if ($esEdicion) {
                 $dao->actualizar($id, $nombre);
+                Auditoria::registrar('servicio_edicion', 'servicio', $id, 'Servicio editado: ' . $nombre);
                 header('Location: servicios.php?msg=editado');
             } else {
-                $dao->crear($nombre);
+                $nuevoId = $dao->crear($nombre);
+                Auditoria::registrar('servicio_alta', 'servicio', $nuevoId, 'Servicio creado: ' . $nombre);
                 header('Location: servicios.php?msg=creado');
             }
             exit;

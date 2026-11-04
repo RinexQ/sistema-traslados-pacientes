@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../negocio/Auth.php';
 require_once __DIR__ . '/../negocio/Usuario.php';
+require_once __DIR__ . '/../negocio/Auditoria.php';
 require_once __DIR__ . '/../datos/UsuarioDAO.php';
 
 // Cualquier usuario con sesion puede cambiar su propia contrasena
@@ -30,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (count($errores) === 0) {
             // password_hash guarda la clave cifrada; nunca en texto plano
             $dao->cambiarPassword($idUsuario, password_hash($nueva, PASSWORD_DEFAULT));
+            Auditoria::registrar('password_cambio', 'usuario', $idUsuario, 'El usuario cambió su propia contraseña');
             $exito = true;
         }
     } catch (PDOException $ex) {

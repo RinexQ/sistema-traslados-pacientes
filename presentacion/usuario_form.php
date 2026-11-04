@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../negocio/Auth.php';
 require_once __DIR__ . '/../negocio/Usuario.php';
+require_once __DIR__ . '/../negocio/Auditoria.php';
 require_once __DIR__ . '/../datos/UsuarioDAO.php';
 
 // Alta y edicion de usuarios (solo administrador)
@@ -61,9 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hash = $password !== '' ? password_hash($password, PASSWORD_DEFAULT) : null;
             if ($esEdicion) {
                 $dao->actualizar($id, $datos['nombre'], $datos['ci'], $datos['email'], $datos['rol'], $hash);
+                Auditoria::registrar('usuario_edicion', 'usuario', $id,
+                    'Usuario editado: ' . $datos['nombre'] . ' (rol ' . $datos['rol'] . ')' . ($hash !== null ? ', contraseña cambiada' : ''));
                 header('Location: usuarios.php?msg=editado');
             } else {
-                $dao->crear($datos['nombre'], $datos['ci'], $datos['email'], $datos['rol'], $hash);
+                $nuevoId = $dao->crear($datos['nombre'], $datos['ci'], $datos['email'], $datos['rol'], $hash);
+                Auditoria::registrar('usuario_alta', 'usuario', $nuevoId, 'Usuario creado: ' . $datos['nombre'] . ' (rol ' . $datos['rol'] . ')');
                 header('Location: usuarios.php?msg=creado');
             }
             exit;

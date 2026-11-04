@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../negocio/Auth.php';
+require_once __DIR__ . '/../negocio/Paginacion.php';
 require_once __DIR__ . '/../datos/SolicitudDAO.php';
 
 // Pueden entrar el administrador y los usuarios basicos
@@ -10,6 +11,7 @@ $mensaje = $_GET['msg'] ?? '';
 
 $errorBD = '';
 $solicitudes = [];
+$paginacion = new Paginacion(0, 1);
 try {
     $dao = new SolicitudDAO();
     if ($esAdmin) {
@@ -19,6 +21,9 @@ try {
         // el usuario basico ve solo las solicitudes que cargo el
         $solicitudes = $dao->listar((int) $usuario['identificador']);
     }
+    // se muestran de a 10 por pagina
+    $paginacion = new Paginacion(count($solicitudes), Paginacion::paginaPedida(), 10);
+    $solicitudes = array_slice($solicitudes, $paginacion->desplazamiento(), $paginacion->limite());
 } catch (PDOException $ex) {
     $errorBD = 'No se pudieron cargar las solicitudes.';
 }
@@ -152,5 +157,7 @@ require __DIR__ . '/layout_inicio.php';
                     </table>
                 </div>
             </div>
+
+            <?php require __DIR__ . '/paginacion.php'; ?>
 
 <?php require __DIR__ . '/layout_fin.php'; ?>

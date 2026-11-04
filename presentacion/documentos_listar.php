@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../negocio/Auth.php';
+require_once __DIR__ . '/../negocio/Paginacion.php';
 require_once __DIR__ . '/../datos/DocumentoDAO.php';
 require_once __DIR__ . '/../datos/ServicioDAO.php';
 
@@ -19,13 +20,18 @@ $mensaje = $_GET['msg'] ?? '';
 $errorBD = '';
 $documentos = [];
 $servicios = [];
+$paginacion = new Paginacion(0, 1);
 try {
     $serviciosDao = new ServicioDAO();
     $servicios = $esAdmin ? $serviciosDao->listarTodos() : $serviciosDao->listarActivos();
     $dao = new DocumentoDAO();
+    $total = $esAdmin
+        ? $dao->contarAdmin($busqueda, $idServicio, $estado)
+        : $dao->contarPublicos($busqueda, $idServicio);
+    $paginacion = new Paginacion($total, Paginacion::paginaPedida(), 10);
     $documentos = $esAdmin
-        ? $dao->listarAdmin($busqueda, $idServicio, $estado)
-        : $dao->listarPublicos($busqueda, $idServicio);
+        ? $dao->listarAdmin($busqueda, $idServicio, $estado, $paginacion->limite(), $paginacion->desplazamiento())
+        : $dao->listarPublicos($busqueda, $idServicio, $paginacion->limite(), $paginacion->desplazamiento());
 } catch (PDOException $ex) {
     $errorBD = 'No se pudieron cargar los documentos.';
 }
@@ -177,5 +183,7 @@ require __DIR__ . '/layout_inicio.php';
                     </table>
                 </div>
             </div>
+
+            <?php require __DIR__ . '/paginacion.php'; ?>
 
 <?php require __DIR__ . '/layout_fin.php'; ?>
